@@ -1,0 +1,11 @@
+{
+  // --- For "Cucumber (Gherkin) Full Support" extension ---
+  "cucumber.features": ["src/features/**/*.feature"],
+  "cucumber.glue": ["src/steps/**/*.ts", "src/support/**/*.ts"],
+
+  // --- For "cucumberautocomplete" extension ---
+  "cucumberautocomplete.steps": ["src/steps/**/*.ts", "src/support/**/*.ts"],
+  "cucumberautocomplete.syncfeatures": "src/features/**/*.feature",
+  "cucumberautocomplete.strictGherkinCompletion": true,
+  "cucumberautocomplete.smartSnippets": true
+}

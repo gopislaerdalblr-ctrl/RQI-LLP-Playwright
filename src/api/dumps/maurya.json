@@ -1,0 +1,9 @@
+﻿{
+  "name": "maurya",
+  "method": "POST",
+  "url": "https://cs3n-staging.contentservice.net/op_lis_endpoint",
+  "headers": {
+    "Content-Type": "application/xml"
+  },
+  "xmlTemplate": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<imsx_POXEnvelopeRequest xmlns=\"http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0\">\n   <imsx_POXHeader>\n      <imsx_POXRequestHeaderInfo>\n         <imsx_version>V1.0</imsx_version>\n         <imsx_messageIdentifier>{{MESSAGE_ID}}</imsx_messageIdentifier>\n      </imsx_POXRequestHeaderInfo>\n   </imsx_POXHeader>\n   <imsx_POXBody>\n      <replaceResultRequest>\n         <resultRecord>\n            <sourcedGUID>\n               <sourcedId>{{SOURCED_ID}}</sourcedId>\n            </sourcedGUID>\n            <result>\n               <resultScore>\n                  <language>en-US</language>\n                  <textString>{{SCORE}}</textString>\n               </resultScore>\n            </result>\n         </resultRecord>\n      </replaceResultRequest>\n   </imsx_POXBody>\n</imsx_POXEnvelopeRequest>"
+}

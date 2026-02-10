@@ -1,0 +1,42 @@
+﻿{
+  "maurya": {
+    "env": "qa",
+    "baseUrl": "https://qa-maurya-rqi1stop.laerdalblr.in/admin",
+    "subdomain": "qa-maurya-rqi1stop",
+    "orgId": "2000229",
+    "orgId2": "2000209",
+    "orgId3": "2005840",
+    "orgId4": "2005871",
+    "orgId5": "2005864"
+  },
+  "qa-samurai": {
+    "env": "qa",
+    "baseUrl": "https://qa-samurai-llp.laerdalblr.in/admin",
+    "subdomain": "qa-samurai-llp",
+    "orgId": "TBD"
+  },
+  "preprodrqi1stop": {
+    "env": "preprod",
+    "baseUrl": "https://preprod-rqi1stop.laerdalblr.in/admin",
+    "subdomain": "preprod-rqi1stop",
+    "orgId": "110714"
+  },
+  "preprodeu": {
+    "env": "preprod",
+    "baseUrl": "https://preprod-eulaerdallearning.laerdalblr.in/admin",
+    "subdomain": "preprod-eulaerdallearning",
+    "orgId": "TBD"
+  },
+  "preprodau": {
+    "env": "preprod",
+    "baseUrl": "https://preprod01.laerdalonline.com.au/admin",
+    "subdomain": "preprod01-laerdalonline-au",
+    "orgId": "TBD"
+  },
+  "preprodchn": {
+    "env": "preprod",
+    "baseUrl": "https://preprod01.laerdalonline.cn/admin",
+    "subdomain": "preprod01-laerdalonline-cn",
+    "orgId": "TBD"
+  }
+}

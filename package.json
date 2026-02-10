@@ -1,0 +1,28 @@
+{
+  "name": "pw-cucumber-ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "ts-node src/runner.ts",
+    "report": "ts-node src/report/generate-report.ts && ts-node src/report/rotate-reports.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@cucumber/cucumber": "^12.6.0",
+    "@playwright/test": "^1.58.0",
+    "@types/archiver": "^7.0.0",
+    "archiver": "^7.0.1",
+    "cross-env": "^10.1.0",
+    "cucumber-html-reporter": "^7.2.0",
+    "dotenv": "^17.2.3",
+    "moment": "^2.30.1",
+    "playwright": "^1.58.0",
+    "rimraf": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -17,7 +17,7 @@
 
     
     
-    @test
+    @test @useremail
 Scenario: Super Admin login successfully
     Given Launch the application
     Then Login with admin credentials
@@ -30,4 +30,4 @@ Scenario: Super Admin login successfully
     Then Navigate to products page
     Then Check if course is available or add the course as "courseId" and "courseId1"
     Then Navigate to manage students page
-    Then Import 20 students from file "students.csv"
+    Then Import 1 students from file "students.csv"

@@ -127,14 +127,16 @@
     ],
 
     SupportActionDropdown: [
-      'a.dropdown-toggle:has-text("Reports")',
-      'a[data-toggle="dropdown"]:has-text("Reports")',
-      'a:has-text("Reports")',
+      'a.dropdown-toggle:has-text("Support Action")',
+      'a[data-toggle="dropdown"]:has-text("Support Action")',
+      'a[href="#"][aria-expanded]',
+      'a:has-text("Support Action")',
     ],
     MergeAccountOption: [
-      'a:has-text("Progress Report")',
-      'a[href*="progress_report"]',
-      'a[href="/manage/progress_report"]',
+      'a[href="/manage/merge_account"]',
+      'a:has-text("Merge Account")',
+      'a[role="button"]',
+      'a[aria-haspopup="true"]',
     ],
     profileDropdown: [
       "a.pro_pic.pii-user-info",

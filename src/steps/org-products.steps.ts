@@ -604,7 +604,7 @@ Then(
 
       const firstName = `auto_first_${suf}`.slice(0, 49);
       const lastName = `auto_last_${suf}`.slice(0, 49);
-      const userId = `auto_userid_${suf}`.slice(0, 49);
+      const userId = `${firstName}@rqimail.laerdalblr.in`;
       const email = `${firstName}@rqimail.laerdalblr.in`;
 
       const orgUnitNames = `L1_${suf}|L2_${suf}|L3_${suf}`;
@@ -763,7 +763,7 @@ Then(
 
     // =========================================================
     // ✅ REQUIRED: Select Status = Active, CLICK SEARCH, validate users
-    // ✅ FIXED: pagination-aware validation (covers page 1..N)
+    // ✅ FIXED: Now validates using exact string match instead of Regex
     // =========================================================
 
     // Select Status dropdown (All / Active / Inactive)
@@ -783,7 +783,7 @@ Then(
     );
 
     if (!clickedSearch) {
-      // fallback: the magnifier button near dropdown (screenshot)
+      // fallback: the magnifier button near dropdown
       const magnifier = this.page
         .locator("button")
         .filter({
@@ -836,22 +836,25 @@ Then(
       .toBeVisible({ timeout: 20000 })
       .catch(() => {});
 
-    // Helper: read all userIds from current page (handles wrapping)
+    // --- FIX START: Logic changed to find created user IDs (emails) directly ---
     const readCurrentPageUserIds = async (): Promise<Set<string>> => {
       const ids = new Set<string>();
       const rows = tbody.locator("tr");
-      const rowCount = await rows.count().catch(() => 0);
+      // Fetch all text at once for performance
+      const rowTexts = await rows.allInnerTexts().catch(() => []);
 
-      for (let i = 0; i < rowCount; i++) {
-        const row = rows.nth(i);
-        const txt = (await row.innerText().catch(() => "")).trim();
+      for (const txt of rowTexts) {
         if (!txt) continue;
-
-        const matches = txt.match(/auto_userid_\d+/g) || [];
-        for (const m of matches) ids.add(m);
+        // Check if the row text contains any of our newly created user IDs
+        for (const u of createdUsers) {
+          if (txt.includes(u.userId)) {
+            ids.add(u.userId);
+          }
+        }
       }
       return ids;
     };
+    // --- FIX END ---
 
     // Helper: click Next page if enabled (DataTables style)
     const clickNextIfEnabled = async (): Promise<boolean> => {
@@ -923,7 +926,9 @@ Then(
       // include current table snapshot for debug
       const snap = (await resultsTable.innerText().catch(() => "")).trim();
       await this.attach(
-        `❌ Missing imported users after Status=Active + Search (checked pagination).\nMissing (${missing.length}):\n` +
+        `❌ Missing imported users after Status=Active + Search (checked pagination).\nMissing (${
+          missing.length
+        }):\n` +
           missing.map((m) => `- ${m}`).join("\n") +
           `\n\n(First 1200 chars of table)\n` +
           snap.slice(0, 1200),

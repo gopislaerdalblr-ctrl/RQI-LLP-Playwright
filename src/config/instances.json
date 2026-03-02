@@ -46,5 +46,9 @@
     "baseUrl": "https://dev-samurai.laerdalblr.in/admin",
     "subdomain": "dev-samurai",
     "orgId": "TBD"
+  },
+  "moodle": {
+    "moodleUrl": "https://moodle-staging.laerdalblr.in/login/index.php",
+    "env": "staging"
   }
 }

@@ -1,4 +1,4 @@
-﻿import {
+import {
   Before,
   After,
   BeforeStep,
@@ -182,6 +182,33 @@ Before(async function (this: World, scenario) {
 
   const instanceKey = getInstanceKey();
   const cfg = loadInstance(instanceKey);
+
+  // =================================================================
+  // ✅ AUTO-INJECT MOODLE CONFIG (Fix for undefined Moodle URL)
+  // =================================================================
+  try {
+    const instancesPath = path.resolve("src/config/instances.json");
+    if (fs.existsSync(instancesPath)) {
+      // Robust Read: Remove BOM characters and trim whitespace
+      let fileContent = fs.readFileSync(instancesPath, "utf-8");
+      fileContent = fileContent.replace(/^\uFEFF/, "").trim();
+
+      const allInstances = JSON.parse(fileContent);
+
+      if (allInstances.moodle && allInstances.moodle.moodleUrl) {
+        // Cast cfg to 'any' to allow adding the new property without TS error
+        (cfg as any).moodleUrl = allInstances.moodle.moodleUrl;
+      }
+    }
+  } catch (e) {
+    console.error("\n[HOOKS] ❌ FAILED to load src/config/instances.json.");
+    console.error(
+      "Please ensure the file is VALID JSON (No comments //, No trailing commas).\n",
+    );
+    // console.error(e); // Uncomment to see full error
+  }
+  // =================================================================
+
   this.instance = cfg;
 
   const secrets = loadSecretsForInstance(
@@ -190,7 +217,7 @@ Before(async function (this: World, scenario) {
   );
 
   const course = loadCourseConfig();
-  // ✅ Save course config to World so After hook can access it
+
   (this as any).courseConfig = course;
 
   this.adminEmail = secrets.adminEmail;
@@ -219,7 +246,7 @@ Before(async function (this: World, scenario) {
   const context: BrowserContext = await browser.newContext({
     ...contextOptions,
     recordVideo: {
-      dir: path.resolve("reports/_tmp/videos"), // Temporary storage
+      dir: path.resolve("reports/_tmp/videos"),
       size: { width: 1280, height: 720 },
     },
   });
@@ -239,7 +266,7 @@ Before(async function (this: World, scenario) {
   this.consoleLogs = [];
   this.page.on("console", (msg: ConsoleMessage) => {
     const text = msg.text();
-    // Truncate excessively long logs (e.g., >1000 chars) to prevent massive reports
+
     const limit = 1000;
     const cleanText =
       text.length > limit
@@ -301,7 +328,6 @@ Before(async function (this: World, scenario) {
     });
   });
 
-  // Persist run metadata
   safeWriteRunMeta({
     instance: instanceKey,
     env: this.instance.env,
@@ -322,7 +348,6 @@ Before(async function (this: World, scenario) {
 After(async function (this: World, scenario) {
   const scenarioName = scenario.pickle.name;
 
-  // 1. Capture Screenshot on Failure (Must happen before close)
   if (scenario.result?.status === Status.FAILED && this.page) {
     const alreadyCaptured = Boolean(
       (this as any)._failedStepScreenshotCaptured,
@@ -342,13 +367,11 @@ After(async function (this: World, scenario) {
     }
 
     // =========================================================================
-    // ✅ GLOBAL UI ERROR CAPTURE (Auto-detect 502, 404, Alerts)
+    // ✅ GLOBAL UI ERROR CAPTURE
     // =========================================================================
     try {
       const detectedErrors = await this.page.evaluate(() => {
         const errors: string[] = [];
-
-        // 1. Check Headers (H1) for common HTTP error codes/text
         const h1s = document.querySelectorAll("h1");
         h1s.forEach((h) => {
           const txt = h.innerText || "";
@@ -357,19 +380,16 @@ After(async function (this: World, scenario) {
           }
         });
 
-        // 2. Check for UI Toasts / Alerts / Error Banners
         const alerts = document.querySelectorAll(
           '.toast-message, .alert, div[role="alert"], .error-banner',
         );
         alerts.forEach((el) => {
-          // Only capture if text is reasonably short (avoid capturing full body)
           const txt = (el as HTMLElement).innerText || "";
           if (txt.length > 0 && txt.length < 300) {
             errors.push(`UI Alert: ${txt}`);
           }
         });
 
-        // 3. Fallback: Check body text for critical specific phrases
         const bodyText = document.body.innerText || "";
         if (bodyText.includes("502 Bad Gateway"))
           errors.push("Page contains: 502 Bad Gateway");
@@ -384,21 +404,19 @@ After(async function (this: World, scenario) {
         // Remove duplicates
         const errorMsg = `🚨 UI ERROR DETECTED ON FAILURE:\n${uniqueErrors.join("\n")}`;
         await this.attach(errorMsg, "text/plain");
-        console.error(`\n[HOOKS] ${errorMsg}\n`); // Also print to local terminal
+        console.error(`\n[HOOKS] ${errorMsg}\n`);
       }
     } catch (err) {
-      // Ignore scraper errors (don't fail the test because scraper failed)
+      // Ignore scraper errors
     }
-    // =========================================================================
   }
 
   // =========================================================================
-  // ✅ METADATA EXTRACTION (Robust OrgID & Course Logic)
+  // ✅ METADATA EXTRACTION
   // =========================================================================
   const currentInstance = (this as any).instance || {};
   const courseConfig = (this as any).courseConfig || {};
 
-  // A. Robust Org ID
   let activeOrgId = currentInstance.orgId || "unknown";
 
   if (this.page) {
@@ -430,7 +448,6 @@ After(async function (this: World, scenario) {
     }
   }
 
-  // B. Mapped Courses
   const foundCourses = new Set<string>();
   try {
     const steps = scenario.pickle.steps || [];
@@ -455,12 +472,11 @@ After(async function (this: World, scenario) {
   const coursesList = foundCourses.size
     ? Array.from(foundCourses)
         .map((c) => `• ${c}`)
-        .join("\n" + " ".repeat(18)) // Indent items
+        .join("\n" + " ".repeat(18))
     : "• (No mapped courses found)";
 
   const instanceKey = getInstanceKey();
 
-  // ✅ PRETTIFIED METADATA BLOCK
   const testMetadata = `
 ╔════════════════════════════════════════════════════════════╗
 ║             🔍  TEST EXECUTION CONTEXT                     ║
@@ -469,7 +485,7 @@ After(async function (this: World, scenario) {
 ║ 🔑 Instance Key   : ${instanceKey.padEnd(30)} ║
 ║ 🖥️  Browser        : ${(process.env.BROWSER || "chromium").padEnd(30)} ║
 ║ 🏢 Active Org ID  : ${activeOrgId.padEnd(30)} ║
-║ 🔗 Base URL       : ${currentInstance.baseUrl || "unknown"}
+║ 🔗 Base URL       : ${(currentInstance.baseUrl || "unknown").padEnd(30)} ║
 ╠════════════════════════════════════════════════════════════╣
 ║ 📚 Used Courses   :
                 ${coursesList}
@@ -478,18 +494,12 @@ Timestamp: ${new Date().toISOString()}
 `.trim();
   await this.attach(testMetadata, "text/plain");
 
-  // =========================================================================
-  // ✅ VIDEO & LOGS SAVING
-  // =========================================================================
-
-  // 1. Get Video Object Reference (BEFORE closing context)
   const video = this.page?.video ? this.page.video() : null;
   let videoPathPromise: Promise<string> | null = null;
   if (video) {
     videoPathPromise = video.path();
   }
 
-  // 2. Generate Logs (Safe while page is closing)
   const meta = readRunMeta();
   const runName = meta?.generatedAt
     ? formatRunNameFromIso(meta.generatedAt)
@@ -543,12 +553,13 @@ Timestamp: ${new Date().toISOString()}
   writeTextFile(netFileTmp, netText);
   writeTextFile(netJsonFileTmp, JSON.stringify(netLogs, null, 2));
 
-  // 3. CLOSE BROWSER CONTEXT (Vital for saving Video)
+  // ✅ Close Moodle Tab first if it exists
+  await this.moodlePage?.close().catch(() => {});
+
   await this.page?.close().catch(() => {});
   await this.context?.close().catch(() => {});
   await this.browser?.close().catch(() => {});
 
-  // 4. PROCESS VIDEO (Now that context is closed, file is fully written)
   if (video && videoPathPromise) {
     try {
       const originalPath = await videoPathPromise;
@@ -567,7 +578,6 @@ Timestamp: ${new Date().toISOString()}
         }
         const videoBuf = fs.readFileSync(newPath);
         await this.attach(videoBuf, "video/webm");
-        // Prettified Video Label
         await this.attach(`🎥 Video: ${newFileName}`, "text/plain");
       }
     } catch (e) {
@@ -578,7 +588,6 @@ Timestamp: ${new Date().toISOString()}
     }
   }
 
-  // 5. Prettified Summary Text Attachment
   const summary: string[] = [];
   summary.push("📋 LOG FILES (Available locally)");
   summary.push("────────────────────────────────────────────────");

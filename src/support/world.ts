@@ -10,19 +10,21 @@ import { isHealEnabled } from "./healwright";
 export class World extends CucumberWorld {
   browser!: Browser;
   context!: BrowserContext;
-
-  // NOTE: keep Page type, but we may wrap it (runtime adds page.heal)
   page!: Page & any;
+
+  // Tab for Moodle execution
+  moodlePage!: Page;
 
   // runtime / config
   instance: any;
   adminEmail!: string;
   adminPassword!: string;
 
+  // Storage for the user created on the fly
+  lastCreatedMoodleUser: any;
+
   // runtime values captured during execution
   sourceId?: string;
-
-  // console logs for report attachments
   consoleLogs!: string[];
 
   // healwright tracking

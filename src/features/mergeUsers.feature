@@ -50,7 +50,7 @@ Feature: Merge User Actions UI Validation.
     
 
 
-    @smoke @merge @mergeUI @moodle
+    @smoke @merge @mergeUI 
   Scenario: Merge user page should load successfully
     Given Launch the application
     Then Login with admin credentials

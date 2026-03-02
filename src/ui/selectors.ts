@@ -152,4 +152,23 @@
       'a:has-text("Logout")', // last resort
     ],
   },
+  moodle: {
+    username: ["input#username", "input[name='username']"],
+    password: ["input#password", "input[name='password']"],
+    loginBtn: ["button#loginbtn", "#loginbtn"],
+    userMenu: [".userbutton", ".usermenu", ".dropdown-toggle"],
+  },
+  moodleUserForm: {
+    username: ["#id_username"],
+    passwordToggle: [
+      "span[data-passwordunmask='edit']",
+      "em >> text=Click to enter text",
+    ],
+    passwordInput: ["#id_newpassword"],
+    firstname: ["#id_firstname"],
+    lastname: ["#id_lastname"],
+    email: ["#id_email"],
+    createBtn: ["#id_submitbutton"],
+    errorMsg: [".form-control-feedback", ".alert-danger"],
+  },
 } as const;

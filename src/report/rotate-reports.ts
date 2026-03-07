@@ -18,13 +18,15 @@ function isDir(p: string) {
 
 function listRunFolders(historyDir: string): string[] {
   if (!fs.existsSync(historyDir)) return [];
-  return fs
-    .readdirSync(historyDir)
-    .map((name) => path.join(historyDir, name))
-    .filter(isDir)
-    // folders are named like YYYY-MM-DD_HH-MM-SS so lexicographic sort works
-    .sort()
-    .reverse(); // newest first
+  return (
+    fs
+      .readdirSync(historyDir)
+      .map((name) => path.join(historyDir, name))
+      .filter(isDir)
+      // folders are named like YYYY-MM-DD_HH-MM-SS so lexicographic sort works
+      .sort()
+      .reverse()
+  ); // newest first
 }
 
 function cleanupTmpLogs(retainRuns: number) {
@@ -53,6 +55,29 @@ function cleanupTmpLogs(retainRuns: number) {
   }
 }
 
+// 👇 NEW FUNCTION: Wipes the accessibility tmp folder clean
+function cleanupAccessibilityTmp() {
+  // Use path.join with process.cwd() or path.resolve to match your other files
+  const accDir = path.resolve("reports/_tmp/accessibility");
+
+  if (!fs.existsSync(accDir)) return;
+
+  console.log("🧹 Cleaning up temporary accessibility reports...");
+
+  try {
+    const files = fs.readdirSync(accDir);
+    for (const file of files) {
+      try {
+        fs.unlinkSync(path.join(accDir, file));
+      } catch (e) {
+        console.warn(`Could not delete tmp file: ${file}`);
+      }
+    }
+  } catch (e) {
+    console.error("Error cleaning accessibility tmp folder:", e);
+  }
+}
+
 function rotateReports() {
   const keepLast = numFromEnv("REPORTS_KEEP_LAST", 5);
   const historyDir = path.resolve("reports/_history");
@@ -69,6 +94,7 @@ function rotateReports() {
   for (const name of toDelete) {
     const full = path.join(historyDir, name);
     try {
+      console.log(`🗑️ Deleting old report: ${name}`);
       fs.rmSync(full, { recursive: true, force: true });
     } catch {
       // ignore; windows may lock briefly
@@ -91,8 +117,11 @@ function rotateReports() {
     }
   }
 
-  // ✅ NEW: cleanup tmp logs to match the same retention count
+  // ✅ cleanup tmp logs to match the same retention count
   cleanupTmpLogs(keepLast);
+
+  // ✅ cleanup accessibility folder (Prevent duplicate reports in next run)
+  cleanupAccessibilityTmp();
 }
 
 if (require.main === module) {

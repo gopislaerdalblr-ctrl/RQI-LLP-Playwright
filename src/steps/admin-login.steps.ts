@@ -1,7 +1,7 @@
 ﻿import { Given, When, Then } from "@cucumber/cucumber";
 import { expect, Page } from "playwright/test";
 import { World } from "../support/world";
-import { S } from "../ui/selectors";
+import { S } from "../pages/selectors";
 import { fillIfPresent } from "../utils/ui-actions";
 import { waitForDebugger } from "node:inspector";
 

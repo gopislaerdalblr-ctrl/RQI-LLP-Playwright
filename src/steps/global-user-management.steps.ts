@@ -11,20 +11,32 @@ import {
 Then(
   "Navigate to Global User Management page",
   async function (this: ICustomWorld) {
-    await clickIfPresent(this, S.adminLogin.GlobalUserDropDown, {
-      strictClick: true,
-    });
-    await clickIfPresent(this, S.adminLogin.GlobalUserManagement, {
-      strictClick: true,
+    const dropdownSelectors = S.adminLogin.GlobalUserDropDown;
+
+    // 1. GATEKEEPER: Wait for the specific "User Mgmt" link to be visible
+    // This prevents the script from clicking too early while the page is loading
+    await this.page.locator(dropdownSelectors[0]).first().waitFor({
+      state: "visible",
+      timeout: 20000,
     });
 
-    // Sync: Wait for URL and ensure the main container is visible
-    await this.page.waitForURL(
-      (url: URL) => url.href.includes("/admin/manageuser"),
-      { timeout: 20000 },
-    );
-    await this.page.waitForLoadState("domcontentloaded");
+    // 2. THE CLICK: Use our utility
+    // Since we updated the selectors to include ":has-text", it will only click the right one
+    await clickIfPresent(this, dropdownSelectors, { strictClick: true });
 
+    // 3. SECOND CLICK: Navigate to Global User Management link
+    // Ensure the menu item is visible before clicking
+    const managementLink = S.adminLogin.GlobalUserManagement;
+    await this.page
+      .locator(managementLink[0])
+      .first()
+      .waitFor({ state: "visible", timeout: 10000 });
+    await clickIfPresent(this, managementLink, { strictClick: true });
+
+    // 4. VERIFY
+    await this.page.waitForURL((url: URL) => !url.href.includes("login"), {
+      timeout: 30000,
+    });
     expect(this.page.url()).toContain("/admin/manageuser");
   },
 );

@@ -4,6 +4,7 @@ Feature: Moodle LMS Integration
   Scenario: Create User on the fly and verify in Maurya
     
     Given Launch the application
+    Then the page should be accessible
     Then Login with admin credentials
     And Launch the moodle application
     Then Login with moodle admin credentials

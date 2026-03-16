@@ -1,7 +1,7 @@
 import { Given, When, Then } from "@cucumber/cucumber";
 import { expect, Page, Locator } from "playwright/test";
 import { World } from "../support/world";
-import { S } from "../ui/selectors";
+import { S } from "../pages/selectors";
 import { fillIfPresent } from "../utils/ui-actions";
 import { waitForDebugger } from "node:inspector";
 
@@ -256,163 +256,32 @@ async function hardLogout(world: any): Promise<void> {
   }
 }
 
-Then("Navigate to Access Organization page", async function (this: World) {
-  await this.page.waitForTimeout(2000);
+Then("Navigate to Global User Management page", async function (this: World) {
+  await clickIfPresent(this, S.adminLogin.GlobalUserDropDown);
 
-  await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
+  await clickIfPresent(this, S.adminLogin.GlobalUserManagement);
 
-  await this.page.waitForLoadState("networkidle");
-
-  await expect(
-    this.page.getByRole("link", { name: /Organi[sz]ation Details/ }),
-  ).toBeVisible({ timeout: 20000 });
-
-  await clickIfPresent(this, S.adminLogin.AccessOrganization);
-
-  console.log("Current URL:", this.page.url());
-  await this.attach(
-    `Navigated to Access Organization page: ${this.page.url()}`,
-    "text/plain",
-  );
+  const url = this.page.url();
+  expect(url).toContain("/admin/manageuser");
 });
-
-Then("Click on Support Action dropdown", async function (this: World) {
-  await this.page.waitForTimeout(2000);
-
-  await clickIfPresent(this, S.adminLogin.SupportActionDropdown);
-});
-
-Then("Click on Merge Account option", async function (this: World) {
-  await this.page.waitForTimeout(2000);
-
-  await clickIfPresent(this, S.adminLogin.MergeAccountOption);
-});
-
-Then("Merge user page should load successfully", async function (this: World) {
-  await this.page.waitForLoadState("networkidle");
-  const currentUrl = this.page.url();
-  console.log("Current Page URL:", currentUrl);
-
-  await this.attach(currentUrl, "text/plain");
-});
-
-type PWWorld = {
-  page: Page;
-  attach: (data: string | Buffer, mediaType: string) => Promise<void>;
-};
-
-async function dismissCookieIfPresent(page: Page) {
-  const allowAll = page.getByRole("button", { name: /allow all cookies/i });
-  const denyAll = page.getByRole("button", { name: /do not allow cookies/i });
-
-  if (await allowAll.isVisible().catch(() => false)) {
-    await allowAll.click();
-  } else if (await denyAll.isVisible().catch(() => false)) {
-    await denyAll.click();
-  }
-}
-
-function panelByHeading(page: Page, headingText: string): Locator {
-  // Finds a container that contains the heading text (works even if HTML tags differ)
-  return page
-    .locator("div, section")
-    .filter({
-      has: page.getByText(headingText, { exact: true }),
-    })
-    .first();
-}
-
-async function validateAccountPanel(
-  panel: Locator,
-  title: "Account 1" | "Account 2",
-) {
-  await expect(panel.getByText(title, { exact: true })).toBeVisible();
-  await expect(panel.getByText(/select the account to retain/i)).toBeVisible();
-
-  // Search input
-  await expect(panel.getByPlaceholder(/search for user id/i)).toBeVisible();
-
-  // Selected user + Remove (best-effort, as UI might vary)
-  await expect(panel.getByText(/remove/i)).toBeVisible();
-
-  // Courses section
-  await expect(panel.getByText("Courses", { exact: true })).toBeVisible();
-
-  // At least 1 course row with metadata
-  const courseRows = panel
-    .locator("div")
-    .filter({ has: panel.getByText(/topics:/i) });
-  const firstRow = courseRows.first();
-
-  await expect(firstRow).toBeVisible();
-  await expect(firstRow.getByRole("checkbox")).toBeVisible();
-  await expect(firstRow.getByText(/completed|in progress/i)).toBeVisible();
-  await expect(firstRow.getByText(/topics:/i)).toBeVisible();
-  await expect(firstRow.getByText(/compliant until/i)).toBeVisible();
-}
 
 Then(
-  "Validate the UI elements on Merge user page",
-  async function (this: PWWorld) {
-    const page = this.page;
-
-    // 1. Log the URL to the console/report
-    const url = page.url();
-    console.log(`Mapsd to: ${url}`);
-    await this.attach(`Merge Accounts URL: ${url}`, "text/plain");
-
-    // 2. Capture and attach the full-page screenshot
-    const shot = await page.screenshot({ fullPage: true });
-    await this.attach(shot, "image/png");
-
-    /* // --- Detailed Validations (Commented Out) ---
-    
-    const isVisible = await page
-      .getByRole("heading", { name: "Merge Accounts" })
-      .isVisible()
-      .catch(() => false);
-
-    if (!isVisible) {
-      throw new Error("Merge Accounts page is not available in instance");
-    }
-
-    // Handle cookie banner if it blocks
-    await dismissCookieIfPresent(page);
-
-    // Panels
-    const account1 = panelByHeading(page, "Account 1");
-    const account2 = panelByHeading(page, "Account 2");
-    const mergedAccount = panelByHeading(page, "Merged Account");
-
-    await expect(account1).toBeVisible();
-    await expect(account2).toBeVisible();
-    await expect(mergedAccount).toBeVisible();
-
-    // Fix for the strict mode error: Use a more specific locator for the 'Retained' badge
-    await expect(account2.locator('.badge-retained')).toBeVisible();
-
-    // Validate Account panels
-    await validateAccountPanel(account1, "Account 1");
-    await validateAccountPanel(account2, "Account 2");
-
-    // Merged Account panel validations
-    await expect(mergedAccount.getByText(/account retained post merge/i)).toBeVisible();
-    await expect(mergedAccount.getByText(/retained user/i)).toBeVisible();
-
-    // Retained Records section
-    await expect(mergedAccount.getByText("Retained Records", { exact: true })).toBeVisible();
-
-    const retainedCards = mergedAccount.locator("div").filter({
-      has: mergedAccount.getByText(/topics:/i),
-    });
-    await expect(retainedCards.first()).toBeVisible();
-    */
+  "Search user with email id {string}",
+  async function (this: World, email: string) {
+    const emailField = this.page.locator(S.adminLogin.EmailField[0]);
+    await this.page.waitForTimeout(2000);
+    await emailField.fill(email);
   },
 );
 
-Then("Logout from the application", async function (this: World) {
-  await hardLogout(this);
+Then("Click on search icon", async function (this: World) {
+  await clickIfPresent(this, S.adminLogin.globalUserSearchButton);
+});
 
-  console.log("Current URL:", this.page.url());
-  await this.attach(`After logout URL: ${this.page.url()}`, "text/plain");
+Then("Click on edit icon for the searched user", async function (this: World) {
+  await clickIfPresent(this, S.adminLogin.globalUserEdit);
+});
+
+Then("Navigate to New Role details", async function (this: World) {
+  await clickIfPresent(this, S.adminLogin.NewRoleDetails);
 });

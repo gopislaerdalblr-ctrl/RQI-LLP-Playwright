@@ -1,9 +1,9 @@
 import { Given, Then } from "@cucumber/cucumber";
 import { World } from "../support/world";
-import { S } from "../ui/selectors";
+import { S } from "../pages/selectors";
 import * as fs from "fs";
 import * as path from "path";
-import { MoodleUI } from "../ui/MoodleUI";
+import { MoodleUI } from "../pages/moodle.page";
 import { saveCreatedUser } from "../utils/user-registry";
 
 // --- STEP DEFINITIONS ---

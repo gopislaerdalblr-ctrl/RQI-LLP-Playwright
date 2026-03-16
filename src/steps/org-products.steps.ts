@@ -7,7 +7,7 @@ import { expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { World } from "../support/world";
-import { S } from "../ui/selectors";
+import { S } from "../pages/selectors";
 
 /**
  * Helper: click first visible selector from a list (your project pattern)

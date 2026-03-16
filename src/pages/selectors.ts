@@ -144,20 +144,56 @@
       'a.pro_pic:has-text("GS")',
     ],
     logoutLink: [
-      'a[text()="Logout - Org2000209"]',
-      'a[contains(text("Logout")]',
-      'a[href*="elearning_signout"]', // strongest
-      'a[href*="signout"]', // fallback
-      'a:has-text("Logout - Org2000209")', // fallback
-      'a:has-text("Logout")', // last resort
+      'a[href*="elearning_signout"]',
+      'a[href*="signout"]',
+      'a:has-text("Logout - Org2000209")',
+      'a:has-text("Logout")',
+    ],
+
+    // --- New Locators properly nested inside adminLogin ---
+    GlobalUserDropDown: [
+      'a.dropdown-toggle:has-text("User Mgmt")',
+      'a[data-toggle="dropdown"]:has-text("User Mgmt")',
+      "a.js-activated",
+      'a[href="#"]:has-text("User Mgmt")',
+    ],
+    GlobalUserManagement: [
+      'a:has-text("User Management")',
+      'a[href="/admin/manageuser?clearsearch=yes"]',
+      'a[href*="/admin/manageuser"]',
+      'a[href*="clearsearch=yes"]',
+    ],
+    EmailField: [
+      "input#email",
+      'input[name="email"]',
+      'input[placeholder="Email Address"]',
+      "input#email.form-control.mb0",
+    ],
+    globalUserSearchButton: [
+      "button#search_list",
+      'button[aria-label="Search"]',
+      "button:has(em.fa-search)",
+      'button[type="submit"].btn-default',
+    ],
+    globalUserEdit: [
+      'a[title="Edit user"]',
+      "a:has(em.fa-pencil-square-o)",
+      "em.fa-pencil-square-o",
+    ],
+    NewRoleDetails: [
+      'a:has-text("New Role Details")',
+      'a[href*="/admin/newrole/"]',
+      'a[href^="/admin/newrole/ZFhObGN"]',
     ],
   },
+
   moodle: {
     username: ["input#username", "input[name='username']"],
     password: ["input#password", "input[name='password']"],
     loginBtn: ["button#loginbtn", "#loginbtn"],
     userMenu: [".userbutton", ".usermenu", ".dropdown-toggle"],
   },
+
   moodleUserForm: {
     username: ["#id_username"],
     passwordToggle: [

@@ -155,9 +155,9 @@
     // --- New Locators properly nested inside adminLogin ---
     GlobalUserDropDown: [
       'a.dropdown-toggle:has-text("User Mgmt")',
-      'a[data-toggle="dropdown"]:has-text("User Mgmt")',
-      "a.js-activated",
-      'a[href="#"]:has-text("User Mgmt")',
+      'a.js-activated:has-text("User Mgmt")',
+      'li.dropdown:has(a:has-text("User Mgmt"))',
+      'text="User Mgmt"',
     ],
     GlobalUserManagement: [
       'a:has-text("User Management")',

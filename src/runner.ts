@@ -22,7 +22,7 @@ const RUN_CONFIG = {
   //browser: "chromium" + "firefox" + "webkit", // chromium | firefox | webkit | "all" | "chromium+firefox+webkit"
   // browser: "all",
   browser: "chromium",
-  headless: true,
+  headless: false,
 
   // Toggle this to control dry run
   dryRun: false,

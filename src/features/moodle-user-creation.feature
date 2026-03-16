@@ -1,6 +1,6 @@
 Feature: Moodle LMS Integration
 
-  @smoke @moodle
+  @smoke @moodle @test
   Scenario: Create User on the fly and verify in Maurya
     
     Given Launch the application

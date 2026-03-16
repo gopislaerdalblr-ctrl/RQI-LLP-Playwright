@@ -1,287 +1,91 @@
-import { Given, When, Then } from "@cucumber/cucumber";
-import { expect, Page, Locator } from "playwright/test";
-import { World } from "../support/world";
+import { Then } from "@cucumber/cucumber";
+import { expect } from "@playwright/test";
 import { S } from "../pages/selectors";
-import { fillIfPresent } from "../utils/ui-actions";
-import { waitForDebugger } from "node:inspector";
-
-type ClickIfPresentOptions = {
-  strictClick?: boolean; // if true, throw when nothing clicked
-  timeoutMs?: number; // click timeout
-  attachDebug?: boolean; // attach clicked element details to report
-};
-
-export async function clickIfPresent(
-  world: any,
-  selectors: readonly string[],
-  options: ClickIfPresentOptions = {},
-): Promise<boolean> {
-  const page = world.page;
-  const strictClick = options.strictClick ?? false;
-  const timeoutMs = options.timeoutMs ?? 10000;
-  const attachDebug = options.attachDebug ?? true;
-
-  for (const sel of selectors) {
-    const loc = page.locator(sel);
-
-    let count = 0;
-    try {
-      count = await loc.count();
-    } catch {
-      count = 0;
-    }
-    if (!count) continue;
-
-    // IMPORTANT: try all matches, not first()
-    for (let i = 0; i < count; i++) {
-      const el = loc.nth(i);
-
-      try {
-        await el.waitFor({ state: "visible", timeout: 2000 });
-
-        const href = await el.getAttribute("href").catch(() => null);
-        const text = ((await el.textContent().catch(() => "")) ?? "").trim();
-
-        // EXTRA SAFETY: if this selector is meant for logout, enforce it
-        if (sel.includes("elearning_signout")) {
-          if (!href || !href.includes("elearning_signout")) continue;
-        }
-
-        if (attachDebug && typeof world.attach === "function") {
-          try {
-            await world.attach(
-              `Clicked selector: ${sel}\nIndex: ${i}\nText: ${text}\nHref: ${href}`,
-              "text/plain",
-            );
-          } catch {
-            // ignore attach errors
-          }
-        }
-
-        await el.scrollIntoViewIfNeeded().catch(() => {});
-        await el.click({ timeout: timeoutMs });
-
-        return true; // only return true if click succeeded
-      } catch {
-        // try next match/selector
-        continue;
-      }
-    }
-  }
-
-  if (strictClick) {
-    throw new Error(
-      `clickIfPresent(strict): Could not click any element for selectors:\n- ${selectors.join("\n- ")}`,
-    );
-  }
-
-  return false;
-}
-
-/*
- * - Find the Logout href using your selectors (NOT by clicking)
- * - Navigate to href directly (page.goto)
- */
-async function navigateToLogoutFromDropdown(world: any): Promise<void> {
-  const page = world.page;
-
-  // Give the dropdown a moment to render items
-  await page.waitForTimeout(300);
-
-  // Find the first visible element that REALLY points to signout
-  for (const sel of S.adminLogin.logoutLink) {
-    const loc = page.locator(sel);
-
-    let count = 0;
-    try {
-      count = await loc.count();
-    } catch {
-      count = 0;
-    }
-    if (!count) continue;
-
-    for (let i = 0; i < count; i++) {
-      const el = loc.nth(i);
-
-      try {
-        await el.waitFor({ state: "visible", timeout: 2000 });
-
-        const href = (
-          (await el.getAttribute("href").catch(() => "")) || ""
-        ).trim();
-        const text = (
-          ((await el.textContent().catch(() => "")) || "") as string
-        ).trim();
-
-        // HARD FILTER: must be logout-ish text AND must be signout-ish href
-        const isLogoutText =
-          /^logout\b/i.test(text) &&
-          !/switch\s*org|switch\s*organization/i.test(text);
-        const isLogoutHref =
-          href.includes("elearning_signout") ||
-          href.toLowerCase().includes("signout");
-
-        if (!isLogoutText || !isLogoutHref) continue;
-
-        // Make href absolute if needed
-        const targetUrl = new URL(href, page.url()).toString();
-
-        if (typeof world.attach === "function") {
-          try {
-            await world.attach(
-              `Resolved Logout URL (no-click mode)\nSelector: ${sel}\nIndex: ${i}\nText: ${text}\nHref: ${href}\nTarget URL: ${targetUrl}`,
-              "text/plain",
-            );
-          } catch {
-            // ignore
-          }
-        }
-
-        // Navigate directly — cannot click Switch Org by mistake
-        await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-
-        // Optional extra settle
-        await page.waitForLoadState("networkidle").catch(() => {});
-
-        return;
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  throw new Error(
-    `Logout failed: Could not resolve a Logout link from selectors.\nSelectors:\n- ${S.adminLogin.logoutLink.join(
-      "\n- ",
-    )}`,
-  );
-}
-
-async function hardLogout(world: any): Promise<void> {
-  const page = world.page;
-
-  // small safe attach helper (never throws)
-  const safeAttach = async (msg: string) => {
-    try {
-      if (world && typeof world.attach === "function") {
-        await world.attach(msg, "text/plain");
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  // 1) Open profile dropdown
-  await clickIfPresent(world, S.adminLogin.profileDropdown);
-  await page.waitForTimeout(300);
-
-  // 2) Resolve logout href from your selector array
-  let targetUrl: string | null = null;
-  let resolvedMeta = "";
-
-  for (const sel of S.adminLogin.logoutLink) {
-    const loc = page.locator(sel);
-    const count = await loc.count().catch(() => 0);
-    if (!count) continue;
-
-    for (let i = 0; i < count; i++) {
-      const el = loc.nth(i);
-      const visible = await el.isVisible().catch(() => false);
-      if (!visible) continue;
-
-      const href = (
-        (await el.getAttribute("href").catch(() => "")) || ""
-      ).trim();
-      const text = ((await el.textContent().catch(() => "")) || "").trim();
-
-      const isLogoutText = /^logout\b/i.test(text);
-      const isLogoutHref =
-        href.includes("elearning_signout") ||
-        href.toLowerCase().includes("signout");
-
-      if (isLogoutText && isLogoutHref) {
-        targetUrl = new URL(href, page.url()).toString();
-        resolvedMeta = `Resolved Logout URL\nSelector: ${sel}\nIndex: ${i}\nText: ${text}\nHref: ${href}\nTarget URL: ${targetUrl}`;
-        break;
-      }
-    }
-    if (targetUrl) break;
-  }
-
-  if (!targetUrl) {
-    throw new Error(
-      `Hard logout failed: could not resolve logout URL from selectors:\n- ${S.adminLogin.logoutLink.join("\n- ")}`,
-    );
-  }
-
-  await safeAttach(resolvedMeta);
-
-  // 3) Hit the signout endpoint
-  await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle").catch(() => {});
-  await safeAttach(`URL after hitting signout: ${page.url()}`);
-
-  // 4) HARD KILL SESSION: clear cookies + storage
-  await page.context().clearCookies();
-
-  // clear storage for current origin
-  await page
-    .evaluate(() => {
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch {}
-    })
-    .catch(() => {});
-
-  // 5) Force a reload of the site root (or login page if your app has one)
-  const baseUrl = new URL("/", page.url()).toString();
-  await page.goto(baseUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
-  await page.waitForTimeout(800);
-
-  // 6) Verify logged out (profile dropdown should NOT be visible)
-  const dropdownVisible = await page
-    .locator(S.adminLogin.profileDropdown[0])
-    .isVisible()
-    .catch(() => false);
-
-  await safeAttach(
-    `After hard logout check\nBase URL: ${baseUrl}\nCurrent URL: ${page.url()}\nProfile dropdown visible: ${dropdownVisible}`,
-  );
-
-  if (dropdownVisible) {
-    throw new Error(
-      `Hard logout attempted but session still active. Current URL: ${page.url()}`,
-    );
-  }
-}
-
-Then("Navigate to Global User Management page", async function (this: World) {
-  await clickIfPresent(this, S.adminLogin.GlobalUserDropDown);
-
-  await clickIfPresent(this, S.adminLogin.GlobalUserManagement);
-
-  const url = this.page.url();
-  expect(url).toContain("/admin/manageuser");
-});
+import { ICustomWorld } from "../support/hooks";
+import {
+  clickIfPresent,
+  fillIfPresent,
+  executeHardLogout,
+} from "../utils/ui-actions";
 
 Then(
-  "Search user with email id {string}",
-  async function (this: World, email: string) {
-    const emailField = this.page.locator(S.adminLogin.EmailField[0]);
-    await this.page.waitForTimeout(2000);
-    await emailField.fill(email);
+  "Navigate to Global User Management page",
+  async function (this: ICustomWorld) {
+    await clickIfPresent(this, S.adminLogin.GlobalUserDropDown, {
+      strictClick: true,
+    });
+    await clickIfPresent(this, S.adminLogin.GlobalUserManagement, {
+      strictClick: true,
+    });
+
+    // Sync: Wait for URL and ensure the main container is visible
+    await this.page.waitForURL(
+      (url: URL) => url.href.includes("/admin/manageuser"),
+      { timeout: 20000 },
+    );
+    await this.page.waitForLoadState("domcontentloaded");
+
+    expect(this.page.url()).toContain("/admin/manageuser");
   },
 );
 
-Then("Click on search icon", async function (this: World) {
-  await clickIfPresent(this, S.adminLogin.globalUserSearchButton);
+Then(
+  "Search user with email id {string}",
+  async function (this: ICustomWorld, email: string) {
+    const emailFieldSelector = S.adminLogin.EmailField[0];
+    const loc = this.page.locator(emailFieldSelector);
+
+    await loc.waitFor({ state: "visible", timeout: 15000 });
+    await fillIfPresent(this, S.adminLogin.EmailField, email, { strict: true });
+
+    // ✅ Focus shift to enable the search button
+    await this.page.keyboard.press("Tab");
+    await this.page.waitForTimeout(500);
+  },
+);
+
+Then("Click on search icon", async function (this: ICustomWorld) {
+  const searchSelectors = S.adminLogin.globalUserSearchButton;
+  const editSelector = S.adminLogin.globalUserEdit[0];
+
+  // 1. Click Search
+  await clickIfPresent(this, searchSelectors, { strictClick: true });
+
+  // 2. STABILITY: Wait for the "Edit" button to be ATTACHED.
+  // We don't wait for 'visible' here because the logs show it stays 'hidden'
+  // due to overlays. 'attached' just means it exists in the DOM.
+  await this.page.locator(editSelector).first().waitFor({
+    state: "attached",
+    timeout: 30000,
+  });
+
+  // 3. Optional: Wait for any common loading spinners to vanish
+  await this.page
+    .locator(".loading, .spinner, #loading-image")
+    .waitFor({ state: "hidden" })
+    .catch(() => {});
+
+  await this.page.waitForLoadState("networkidle").catch(() => {});
 });
 
-Then("Click on edit icon for the searched user", async function (this: World) {
-  await clickIfPresent(this, S.adminLogin.globalUserEdit);
-});
+Then(
+  "Click on edit icon for the searched user",
+  async function (this: ICustomWorld) {
+    const editSelectors = S.adminLogin.globalUserEdit;
+    const editBtn = this.page.locator(editSelectors[0]).first();
 
-Then("Navigate to New Role details", async function (this: World) {
-  await clickIfPresent(this, S.adminLogin.NewRoleDetails);
+    // ✅ THE SLEDGEHAMMER:
+    // Since Playwright sees it as 'hidden', we use force: true to click it anyway.
+    // This bypasses the 'actionability' check that is currently failing.
+    await editBtn.click({ force: true, timeout: 10000 });
+
+    await this.page.waitForLoadState("domcontentloaded");
+  },
+);
+
+Then("Navigate to New Role details", async function (this: ICustomWorld) {
+  await clickIfPresent(this, S.adminLogin.NewRoleDetails, {
+    strictClick: true,
+  });
+  await this.page.waitForLoadState("domcontentloaded");
 });

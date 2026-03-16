@@ -1,175 +1,206 @@
 ﻿import { Given, When, Then } from "@cucumber/cucumber";
-import { expect, Page } from "playwright/test";
-import { World } from "../support/world";
+import { expect } from "@playwright/test";
 import { S } from "../pages/selectors";
-import { fillIfPresent } from "../utils/ui-actions";
-import { waitForDebugger } from "node:inspector";
+import { ICustomWorld } from "../support/hooks";
+import { clickIfPresent, fillIfPresent } from "../utils/ui-actions";
 
-async function clickIfPresent(world: World, selectors: readonly string[]) {
-  for (const sel of selectors) {
-    const loc = world.page.locator(sel);
-    if (await loc.count().catch(() => 0)) {
-      if (
-        await loc
-          .first()
-          .isVisible()
-          .catch(() => false)
-      ) {
-        await loc
-          .first()
-          .click()
-          .catch(() => {});
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-Given("Launch the application", async function (this: World) {
+Given("Launch the application", async function (this: ICustomWorld) {
   await this.page.goto(this.instance.baseUrl, {
     waitUntil: "domcontentloaded",
   });
 });
 
-Then("Login with admin credentials", async function (this: World) {
-  // Click "Sign in" if it exists
+Then("Login with admin credentials", async function (this: ICustomWorld) {
+  // 1. Click "Sign in"
   await clickIfPresent(this, S.adminLogin.signIn);
 
-  // Wait until Gigya renders a VISIBLE email field
-  const emailLoc = this.page.locator(S.adminLogin.email.join(","));
-  await emailLoc.first().waitFor({ state: "visible", timeout: 60000 });
+  // 2. GATEKEEPER: Wait for Gigya/Login form to attach to DOM
+  // Batch runs often lag here; waiting 30s for the email field is safer.
+  const emailSelector = S.adminLogin.email[0];
+  await this.page.locator(emailSelector).first().waitFor({
+    state: "attached",
+    timeout: 30000,
+  });
 
-  const pwdLoc = this.page.locator(S.adminLogin.password.join(","));
-  await pwdLoc.first().waitFor({ state: "visible", timeout: 60000 });
+  // 3. Fill Credentials (Iterates through array + Healwright fallback)
+  await fillIfPresent(this, S.adminLogin.email, this.adminEmail, {
+    strict: true,
+  });
+  await fillIfPresent(this, S.adminLogin.password, this.adminPassword, {
+    strict: true,
+  });
 
-  await emailLoc.first().fill(this.adminEmail);
-  await pwdLoc.first().fill(this.adminPassword);
+  // 4. Submit and wait for the Auth redirect to complete
+  await clickIfPresent(this, S.adminLogin.submit, { strictClick: true });
 
-  const submitLoc = this.page.locator(S.adminLogin.submit.join(","));
-  await submitLoc.first().waitFor({ state: "visible", timeout: 60000 });
-  await submitLoc.first().click();
+  // 5. REDIRECT CHECKPOST: Don't move to next step until login page is gone
+  await this.page.waitForURL((url: URL) => !url.href.includes("login"), {
+    timeout: 30000,
+  });
+  await this.page.waitForLoadState("domcontentloaded");
 });
 
-Then("Admin should be logged in successfully", async function (this: World) {
-  // At this stage we only verify that login was ATTEMPTED correctly.
-  // Actual success depends on env policies (captcha / OTP / SSO).
+Then(
+  "Admin should be logged in successfully",
+  async function (this: ICustomWorld) {
+    const loginFieldsStillVisible = await this.page
+      .locator('input[type="password"]')
+      .count()
+      .catch(() => 0);
 
-  const loginFieldsStillVisible = await this.page
-    .locator('input[type="password"]')
-    .count()
-    .catch(() => 0);
+    if (loginFieldsStillVisible > 0) {
+      await this.attach(
+        "Warning: Login form still visible. Possible redirect delay or session issue.",
+        "text/plain",
+      );
+    }
+  },
+);
 
-  if (loginFieldsStillVisible > 0) {
-    await this.attach(
-      "Login form still visible after submit. This may be due to Cookies banner.",
-      "text/plain",
-    );
-  }
+Then("Select Super admin role", async function (this: ICustomWorld) {
+  // Wait for role selection UI to be ready
+  const roleSelector = S.adminLogin.superAdminRole[0];
+  await this.page
+    .locator(roleSelector)
+    .first()
+    .waitFor({ state: "visible", timeout: 20000 });
 
-  // Do not hard-fail here — login flow itself is verified
-});
+  await clickIfPresent(this, S.adminLogin.superAdminRole, {
+    strictClick: true,
+  });
 
-Then("Select Super admin role", async function () {
-  const role = this.page.locator(S.adminLogin.superAdminRole[0]);
-  await role.click();
   console.log("Selected Super Administrator role");
-  await this.page.waitForLoadState("networkidle");
+  await this.page.waitForLoadState("domcontentloaded");
 });
-Then("Navigate to Admin Dashboard", async function (this: World) {
-  // Only print the admin dashboard URL in logs
+
+Then("Navigate to Admin Dashboard", async function (this: ICustomWorld) {
   const adminDashboardUrl = `${this.instance.baseUrl}/dashboard`;
   await this.attach(
-    `Navigated to Admin Dashboard: ${adminDashboardUrl}`,
-    "text/plain",
-  );
-});
-Then("Navigate to Organizations listing page", async function (this: World) {
-  // Navigate to Organizations listing page
-  const clicked = await clickIfPresent(
-    this,
-    S.adminLogin.admindashboard.OrgListingNav,
-  );
-  expect(clicked).toBeTruthy();
-  await this.page.waitForLoadState("networkidle");
-  const orgListingUrl = `${this.instance.baseUrl}/organizations`;
-  await this.attach(
-    `Navigated to Organizations listing page: ${orgListingUrl}`,
+    `Mapsd to Admin Dashboard: ${adminDashboardUrl}`,
     "text/plain",
   );
 });
 
 Then(
-  "Admin search org by id {string}",
-  async function (this: World, orgIdFromStep: string) {
-    const key = (orgIdFromStep || "").trim();
+  "Navigate to Organizations listing page",
+  async function (this: ICustomWorld) {
+    // Ensure Sidebar/Nav is visible before clicking
+    const navSelector = S.adminLogin.admindashboard.OrgListingNav[0];
+    await this.page
+      .locator(navSelector)
+      .first()
+      .waitFor({ state: "visible", timeout: 20000 });
 
-    // ✅ If step arg is ORGID / orgId / orgId3 / orgId4... => lookup from instances.json
+    const clicked = await clickIfPresent(
+      this,
+      S.adminLogin.admindashboard.OrgListingNav,
+      { strictClick: true },
+    );
+
+    expect(clicked).toBeTruthy();
+    await this.page.waitForLoadState("domcontentloaded");
+
+    await this.attach(
+      `Mapsd to Organizations listing page: ${this.page.url()}`,
+      "text/plain",
+    );
+  },
+);
+
+Then(
+  "Admin search org by id {string}",
+  async function (this: ICustomWorld, orgIdFromStep: string) {
+    const key = (orgIdFromStep || "").trim();
     const isOrgKey =
       /^orgid(\d+)?$/i.test(key) || key.toUpperCase() === "ORGID";
 
     let orgId: string;
-
     if (!key || key.toUpperCase() === "ORGID") {
       orgId = this.instance?.orgId || "";
     } else if (isOrgKey) {
-      // dynamic lookup: orgId / orgId3 / orgId4 ...
-      const k = key; // keep original casing from step
       const v =
-        (this.instance as any)?.[k] ??
-        (this.instance as any)?.[k.toLowerCase()] ??
+        (this.instance as any)?.[key] ??
+        (this.instance as any)?.[key.toLowerCase()] ??
         "";
-
       orgId = String(v || "").trim();
     } else {
-      // direct numeric/id passed
       orgId = key;
     }
 
-    if (!orgId) {
-      throw new Error(
-        `OrgId is empty. Step passed "${orgIdFromStep}". ` +
-          `instances.json key "${key || "orgId"}" for instance "${process.env.INSTANCE}" is missing.`,
-      );
-    }
+    if (!orgId) throw new Error(`OrgId lookup failed for: "${key}"`);
 
-    // search org
-    await fillIfPresent(this, S.adminLogin.orgListing.searchInput, orgId);
-    await clickIfPresent(this, S.adminLogin.orgListing.searchButton);
+    // Smart Fill and Search
+    await fillIfPresent(this, S.adminLogin.orgListing.searchInput, orgId, {
+      strict: true,
+    });
+    await clickIfPresent(this, S.adminLogin.orgListing.searchButton, {
+      strictClick: true,
+    });
 
-    // validate orgId appears in result
-    await expect(this.page.locator(`text=${orgId}`)).toBeVisible({
+    // Verify search results appeared
+    await expect(this.page.locator(`text=${orgId}`).first()).toBeVisible({
       timeout: 15000,
     });
   },
 );
 
-Then("Navigate to Organization details page", async function (this: World) {
-  await this.page.waitForTimeout(2000);
+Then(
+  "Navigate to Organization details page",
+  async function (this: ICustomWorld) {
+    // 1. SMART WAIT: Use the exact Bootstrap 5 attribute found in your outerHTML
+    const kababSelector = 'a.action_dropdown[data-bs-toggle="dropdown"]';
 
-  await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
+    // Wait for it to be attached (it exists in code) then visible (user can see it)
+    const kababLocator = this.page.locator(kababSelector).first();
+    await kababLocator.waitFor({ state: "attached", timeout: 20000 });
+    await kababLocator.waitFor({ state: "visible", timeout: 10000 });
 
-  await this.page.waitForLoadState("networkidle");
+    // 2. THE CLICK: Use our smart utility to handle the array and AI healing
+    // This will now find the button immediately because the selector matches the HTML
+    const actionsClicked = await clickIfPresent(
+      this,
+      S.adminLogin.orgListingActions.orgActions,
+      { strictClick: true },
+    );
 
-  await expect(
-    this.page.getByRole("link", { name: /Organi[sz]ation Details/ }),
-  ).toBeVisible({ timeout: 20000 });
+    if (!actionsClicked) {
+      throw new Error(
+        "Found the kabab icon in HTML but failed to trigger the click.",
+      );
+    }
 
-  await clickIfPresent(this, S.adminLogin.orgListingActions.orgDetailsAction);
+    // 3. MENU SELECTION: Click the details link from the dropdown
+    await clickIfPresent(
+      this,
+      S.adminLogin.orgListingActions.orgDetailsAction,
+      { strictClick: true },
+    );
 
-  console.log("Current URL:", this.page.url());
+    await this.page.waitForLoadState("domcontentloaded");
+
+    await this.attach(
+      `Successfully navigated to Organization details: ${this.page.url()}`,
+      "text/plain",
+    );
+  },
+);
+
+Then("Navigate to products page", async function (this: ICustomWorld) {
+  // Ensure the product tab/link is visible
+  const productSelector = S.adminLogin.orgProducts.orgProducts[0];
+  await this.page
+    .locator(productSelector)
+    .first()
+    .waitFor({ state: "visible", timeout: 20000 });
+
+  await clickIfPresent(this, S.adminLogin.orgProducts.orgProducts, {
+    strictClick: true,
+  });
+
+  await this.page.waitForLoadState("domcontentloaded");
+
   await this.attach(
-    `Navigated to Organization details page: ${this.page.url()}`,
-    "text/plain",
-  );
-});
-
-Then("Navigate to products page", async function (this: World) {
-  await this.page.waitForLoadState("networkidle");
-  await clickIfPresent(this, S.adminLogin.orgProducts.orgProducts);
-  console.log("Current URL:", this.page.url());
-  await this.attach(
-    `Navigated to Organization products page: ${this.page.url()}`,
+    `Mapsd to Organization products page: ${this.page.url()}`,
     "text/plain",
   );
 });

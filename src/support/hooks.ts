@@ -12,7 +12,6 @@ import {
   chromium,
   firefox,
   webkit,
-  Browser,
   BrowserContext,
   Page,
   type ConsoleMessage,
@@ -25,7 +24,6 @@ import {
   loadSecretsForInstance,
 } from "../config/runtime";
 import { World } from "./world";
-// 👇 NEW IMPORT ADDED HERE
 import { pageFixture } from "./pageFixture";
 
 // --- Constants & Type Definitions ---
@@ -35,10 +33,7 @@ const ALLOWED_BROWSER_TYPES = new Set(["chromium", "firefox", "webkit"]);
 
 const BROWSER_LAUNCHERS = {
   chromium: (headless: boolean) =>
-    chromium.launch({
-      headless,
-      args: ["--start-maximized"],
-    }),
+    chromium.launch({ headless, args: ["--start-maximized"] }),
   firefox: (headless: boolean) => firefox.launch({ headless }),
   webkit: (headless: boolean) => webkit.launch({ headless }),
 } as const;
@@ -58,10 +53,20 @@ type NetEntry = {
   timingMs?: number;
 };
 
+// ✅ FIX: Removed 'heal' and 'sourceId' to inherit perfectly from your strict World file
+export interface ICustomWorld extends World {
+  pickle?: any;
+  lastStepText?: string;
+  _failedStepScreenshotCaptured?: boolean;
+  courseConfig?: any;
+  pageErrors?: string[];
+  netLogs?: NetEntry[];
+  reqStart?: Map<string, number>;
+}
+
 setDefaultTimeout(120_000);
 
 // --- Helper Functions ---
-
 function ensureDir(p: string) {
   fs.mkdirSync(p, { recursive: true });
 }
@@ -69,7 +74,6 @@ function ensureDir(p: string) {
 function safeWriteRunMeta(meta: any) {
   const tmpDir = path.resolve("reports/_tmp");
   ensureDir(tmpDir);
-
   const metaFile = path.join(tmpDir, "run-meta.json");
   const tempFile = metaFile + ".tmp";
   try {
@@ -78,9 +82,7 @@ function safeWriteRunMeta(meta: any) {
   } catch {
     try {
       if (fs.existsSync(tempFile)) fs.rmSync(tempFile, { force: true });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 }
 
@@ -97,13 +99,7 @@ function readRunMeta(): any | null {
 function formatRunNameFromIso(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const mm = pad(d.getMonth() + 1);
-  const dd = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-  return `${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 }
 
 function safeFilePart(s: string) {
@@ -119,15 +115,6 @@ function writeTextFile(fullPath: string, content: string) {
   fs.writeFileSync(fullPath, content, "utf-8");
 }
 
-function tryCopyFile(src: string, dest: string) {
-  try {
-    ensureDir(path.dirname(dest));
-    fs.copyFileSync(src, dest);
-  } catch {
-    // ignore
-  }
-}
-
 function getInstanceKey(): string {
   return String(process.env.INSTANCE || "maurya")
     .trim()
@@ -140,13 +127,45 @@ function getViewportOptionsForBrowser(browserType: string) {
     : { viewport: FIXED_VIEWPORT };
 }
 
+// Extracted UI Error Logic for cleaner hooks
+async function captureUIErrors(page: Page): Promise<string[]> {
+  try {
+    const detectedErrors = await page.evaluate(() => {
+      const errors: string[] = [];
+      document.querySelectorAll("h1").forEach((h) => {
+        const txt = h.innerText || "";
+        if (/502|500|404|403|Bad Gateway|Internal Server Error/i.test(txt))
+          errors.push(`Header Error: ${txt}`);
+      });
+      document
+        .querySelectorAll(
+          '.toast-message, .alert, div[role="alert"], .error-banner',
+        )
+        .forEach((el) => {
+          const txt = (el as HTMLElement).innerText || "";
+          if (txt.length > 0 && txt.length < 300)
+            errors.push(`UI Alert: ${txt}`);
+        });
+      const bodyText = document.body.innerText || "";
+      if (bodyText.includes("502 Bad Gateway"))
+        errors.push("Page contains: 502 Bad Gateway");
+      if (bodyText.includes("404 Not Found"))
+        errors.push("Page contains: 404 Not Found");
+      return errors;
+    });
+    return Array.from(new Set(detectedErrors));
+  } catch {
+    return [];
+  }
+}
+
 // --- Hooks ---
 
-BeforeStep(function (this: World, { pickleStep }) {
-  (this as any).lastStepText = pickleStep?.text || "";
+BeforeStep(function (this: ICustomWorld, { pickleStep }) {
+  this.lastStepText = pickleStep?.text || "";
 });
 
-AfterStep(async function (this: World, { result }) {
+AfterStep(async function (this: ICustomWorld, { result }) {
   if (!result || result.status !== Status.FAILED) return;
   if (!this.page) return;
 
@@ -154,20 +173,18 @@ AfterStep(async function (this: World, { result }) {
     const tmpShotsDir = path.resolve("reports/_tmp/screenshots");
     ensureDir(tmpShotsDir);
 
-    const scenarioName = (this as any)?.pickle?.name || "scenario";
+    const scenarioName = this.pickle?.name || "scenario";
     const safeScenario = safeFilePart(scenarioName);
-    const safeStep = safeFilePart((this as any).lastStepText || "failed_step");
+    const safeStep = safeFilePart(this.lastStepText || "failed_step");
 
-    const fileName = `${new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-")}_${safeScenario}__${safeStep}.png`;
+    const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}_${safeScenario}__${safeStep}.png`;
     const fullPath = path.join(tmpShotsDir, fileName);
 
     const buf = await this.page.screenshot({ path: fullPath, fullPage: true });
     await this.attach(buf, "image/png");
     await this.attach(`URL: ${this.page.url()}`, "text/plain");
 
-    (this as any)._failedStepScreenshotCaptured = true;
+    this._failedStepScreenshotCaptured = true;
   } catch (e) {
     await this.attach(
       `Failed to capture AfterStep screenshot: ${(e as Error).message}`,
@@ -176,54 +193,40 @@ AfterStep(async function (this: World, { result }) {
   }
 });
 
-Before(async function (this: World, scenario) {
-  (this as any).pickle = scenario.pickle;
-  (this as any)._failedStepScreenshotCaptured = false;
+Before(async function (this: ICustomWorld, scenario) {
+  this.pickle = scenario.pickle;
+  this._failedStepScreenshotCaptured = false;
 
   const instanceKey = getInstanceKey();
   const cfg = loadInstance(instanceKey);
 
-  // =================================================================
-  // ✅ AUTO-INJECT MOODLE CONFIG (Fix for undefined Moodle URL)
-  // =================================================================
+  // Asynchronous File Read for Moodle config with (cfg as any) bypass
   try {
     const instancesPath = path.resolve("src/config/instances.json");
     if (fs.existsSync(instancesPath)) {
-      // Robust Read: Remove BOM characters and trim whitespace
-      let fileContent = fs.readFileSync(instancesPath, "utf-8");
+      let fileContent = await fs.promises.readFile(instancesPath, "utf-8");
       fileContent = fileContent.replace(/^\uFEFF/, "").trim();
-
       const allInstances = JSON.parse(fileContent);
 
       if (allInstances.moodle && allInstances.moodle.moodleUrl) {
-        // Cast cfg to 'any' to allow adding the new property without TS error
         (cfg as any).moodleUrl = allInstances.moodle.moodleUrl;
       }
     }
   } catch (e) {
     console.error("\n[HOOKS] ❌ FAILED to load src/config/instances.json.");
-    console.error(
-      "Please ensure the file is VALID JSON (No comments //, No trailing commas).\n",
-    );
-    // console.error(e); // Uncomment to see full error
   }
-  // =================================================================
 
   this.instance = cfg;
-
   const secrets = loadSecretsForInstance(
     instanceKey as SecretsInstanceKey,
     cfg.env as SecretsEnv,
   );
-
   const course = loadCourseConfig();
-
-  (this as any).courseConfig = course;
+  this.courseConfig = course;
 
   this.adminEmail = secrets.adminEmail;
   this.adminPassword = secrets.adminPassword;
 
-  // --- BROWSER LAUNCH LOGIC ---
   const browserEnvValue = process.env.BROWSER;
   const browserType = browserEnvValue
     ? browserEnvValue.toLowerCase()
@@ -238,11 +241,9 @@ Before(async function (this: World, scenario) {
 
   const launchBrowser =
     BROWSER_LAUNCHERS[browserType as keyof typeof BROWSER_LAUNCHERS];
-
-  const browser: Browser = await launchBrowser(headless);
+  const browser = await launchBrowser(headless);
   const contextOptions = getViewportOptionsForBrowser(browserType);
 
-  // ✅ ENABLE VIDEO RECORDING
   const context: BrowserContext = await browser.newContext({
     ...contextOptions,
     recordVideo: {
@@ -250,48 +251,39 @@ Before(async function (this: World, scenario) {
       size: { width: 1280, height: 720 },
     },
   });
-  const page: Page = await context.newPage();
 
+  const page: Page = await context.newPage();
   this.browser = browser;
   this.context = context;
   this.page = page;
 
-  // 👇 NEW ASSIGNMENT ADDED HERE
-  // This makes the page available to your steps (like the accessibility test)
   pageFixture.page = page;
 
-  // -------------------------------------------------------------------------
-  // ✅ SMART CONSOLE LOGGING (Truncate huge logs)
-  // -------------------------------------------------------------------------
   this.consoleLogs = [];
   this.page.on("console", (msg: ConsoleMessage) => {
     const text = msg.text();
-
     const limit = 1000;
     const cleanText =
       text.length > limit
         ? text.substring(0, limit) +
           ` ... [TRUNCATED (${text.length - limit} chars)]`
         : text;
-
-    this.consoleLogs.push(`[console] ${msg.type()} ${cleanText}`);
+    this.consoleLogs!.push(`[console] ${msg.type()} ${cleanText}`);
   });
-  // -------------------------------------------------------------------------
 
-  (this as any).pageErrors = [];
+  this.pageErrors = [];
   this.page.on("pageerror", (err: Error) => {
-    (this as any).pageErrors.push(`[pageerror] ${err?.message || String(err)}`);
+    this.pageErrors!.push(`[pageerror] ${err?.message || String(err)}`);
   });
 
-  (this as any).netLogs = [] as NetEntry[];
-  (this as any).reqStart = new Map<string, number>();
-
+  this.netLogs = [];
+  this.reqStart = new Map<string, number>();
   const nowIso = () => new Date().toISOString();
 
   this.page.on("request", (req: Request) => {
     const id = req.url() + "::" + req.method() + "::" + req.resourceType();
-    (this as any).reqStart.set(id, Date.now());
-    (this as any).netLogs.push({
+    this.reqStart!.set(id, Date.now());
+    this.netLogs!.push({
       type: "request",
       ts: nowIso(),
       method: req.method(),
@@ -303,9 +295,9 @@ Before(async function (this: World, scenario) {
   this.page.on("response", async (res: Response) => {
     const req = res.request();
     const id = req.url() + "::" + req.method() + "::" + req.resourceType();
-    const start = (this as any).reqStart.get(id);
+    const start = this.reqStart!.get(id);
     const timingMs = typeof start === "number" ? Date.now() - start : undefined;
-    (this as any).netLogs.push({
+    this.netLogs!.push({
       type: "response",
       ts: nowIso(),
       method: req.method(),
@@ -318,7 +310,7 @@ Before(async function (this: World, scenario) {
   });
 
   this.page.on("requestfailed", (req: Request) => {
-    (this as any).netLogs.push({
+    this.netLogs!.push({
       type: "failed",
       ts: nowIso(),
       method: req.method(),
@@ -335,7 +327,7 @@ Before(async function (this: World, scenario) {
     subdomain: this.instance.subdomain,
     orgId: this.instance.orgId,
     courseName: course.courseName,
-    sourceId: (this as any).sourceId ?? "not-captured-yet",
+    sourceId: this.sourceId ?? "not-captured-yet",
     generatedAt: new Date().toISOString(),
     browser: browserType,
     userSpecifiedBrowser:
@@ -345,78 +337,33 @@ Before(async function (this: World, scenario) {
   await this.attach(`Scenario: ${scenario.pickle.name}`, "text/plain");
 });
 
-After(async function (this: World, scenario) {
+After(async function (this: ICustomWorld, scenario) {
   const scenarioName = scenario.pickle.name;
 
   if (scenario.result?.status === Status.FAILED && this.page) {
-    const alreadyCaptured = Boolean(
-      (this as any)._failedStepScreenshotCaptured,
-    );
-    if (!alreadyCaptured) {
+    if (!this._failedStepScreenshotCaptured) {
       const tmpShotsDir = path.resolve("reports/_tmp/screenshots");
       ensureDir(tmpShotsDir);
-      const safeName = safeFilePart(scenarioName);
-      const fileName = `${new Date()
-        .toISOString()
-        .replace(/[:.]/g, "-")}_${safeName}.png`;
+      const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}_${safeFilePart(scenarioName)}.png`;
       const fullPath = path.join(tmpShotsDir, fileName);
       await this.page.screenshot({ path: fullPath, fullPage: true });
-      const buf = fs.readFileSync(fullPath);
+
+      // Asynchronous File Read
+      const buf = await fs.promises.readFile(fullPath);
       await this.attach(buf, "image/png");
       await this.attach(`URL: ${this.page.url()}`, "text/plain");
     }
 
-    // =========================================================================
-    // ✅ GLOBAL UI ERROR CAPTURE
-    // =========================================================================
-    try {
-      const detectedErrors = await this.page.evaluate(() => {
-        const errors: string[] = [];
-        const h1s = document.querySelectorAll("h1");
-        h1s.forEach((h) => {
-          const txt = h.innerText || "";
-          if (/502|500|404|403|Bad Gateway|Internal Server Error/i.test(txt)) {
-            errors.push(`Header Error: ${txt}`);
-          }
-        });
-
-        const alerts = document.querySelectorAll(
-          '.toast-message, .alert, div[role="alert"], .error-banner',
-        );
-        alerts.forEach((el) => {
-          const txt = (el as HTMLElement).innerText || "";
-          if (txt.length > 0 && txt.length < 300) {
-            errors.push(`UI Alert: ${txt}`);
-          }
-        });
-
-        const bodyText = document.body.innerText || "";
-        if (bodyText.includes("502 Bad Gateway"))
-          errors.push("Page contains: 502 Bad Gateway");
-        if (bodyText.includes("404 Not Found"))
-          errors.push("Page contains: 404 Not Found");
-
-        return errors;
-      });
-
-      if (detectedErrors.length > 0) {
-        const uniqueErrors = Array.from(new Set(detectedErrors));
-        // Remove duplicates
-        const errorMsg = `🚨 UI ERROR DETECTED ON FAILURE:\n${uniqueErrors.join("\n")}`;
-        await this.attach(errorMsg, "text/plain");
-        console.error(`\n[HOOKS] ${errorMsg}\n`);
-      }
-    } catch (err) {
-      // Ignore scraper errors
+    const uniqueErrors = await captureUIErrors(this.page);
+    if (uniqueErrors.length > 0) {
+      const errorMsg = `🚨 UI ERROR DETECTED ON FAILURE:\n${uniqueErrors.join("\n")}`;
+      await this.attach(errorMsg, "text/plain");
+      console.error(`\n[HOOKS] ${errorMsg}\n`);
     }
   }
 
-  // =========================================================================
-  // ✅ METADATA EXTRACTION
-  // =========================================================================
-  const currentInstance = (this as any).instance || {};
-  const courseConfig = (this as any).courseConfig || {};
-
+  const currentInstance = this.instance || {};
+  const courseConfig = this.courseConfig || {};
   let activeOrgId = currentInstance.orgId || "unknown";
 
   if (this.page) {
@@ -426,7 +373,7 @@ After(async function (this: World, scenario) {
       if (match && match[1]) {
         activeOrgId = match[1];
       } else {
-        const netLogs: NetEntry[] = (this as any).netLogs || [];
+        const netLogs: NetEntry[] = this.netLogs || [];
         const lastOrgVisit = netLogs
           .reverse()
           .find(
@@ -438,24 +385,20 @@ After(async function (this: World, scenario) {
           const histMatch = lastOrgVisit.url.match(
             /\/manage_organization\/(\d+)/,
           );
-          if (histMatch && histMatch[1]) {
-            activeOrgId = histMatch[1];
-          }
+          if (histMatch && histMatch[1]) activeOrgId = histMatch[1];
         }
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   const foundCourses = new Set<string>();
   try {
     const steps = scenario.pickle.steps || [];
-    steps.forEach((step) => {
+    steps.forEach((step: any) => {
       const text = step.text || "";
       const matches = text.match(/["']([^"']+)["']/g);
       if (matches) {
-        matches.forEach((m) => {
+        matches.forEach((m: string) => {
           const key = m.replace(/["']/g, "");
           if (courseConfig[key]) {
             foundCourses.add(courseConfig[key]);
@@ -465,16 +408,13 @@ After(async function (this: World, scenario) {
         });
       }
     });
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   const coursesList = foundCourses.size
     ? Array.from(foundCourses)
         .map((c) => `• ${c}`)
         .join("\n" + " ".repeat(18))
     : "• (No mapped courses found)";
-
   const instanceKey = getInstanceKey();
 
   const testMetadata = `
@@ -496,18 +436,14 @@ Timestamp: ${new Date().toISOString()}
 
   const video = this.page?.video ? this.page.video() : null;
   let videoPathPromise: Promise<string> | null = null;
-  if (video) {
-    videoPathPromise = video.path();
-  }
+  if (video) videoPathPromise = video.path();
 
   const meta = readRunMeta();
   const runName = meta?.generatedAt
     ? formatRunNameFromIso(meta.generatedAt)
     : formatRunNameFromIso(new Date().toISOString());
-
   const tmpLogsDir = path.resolve("reports/_tmp/logs");
   ensureDir(tmpLogsDir);
-
   const safeScenario = safeFilePart(scenarioName);
   const baseFile = `${runName}__${safeScenario}`;
 
@@ -521,13 +457,13 @@ Timestamp: ${new Date().toISOString()}
     : "No console logs captured.";
   writeTextFile(consoleFileTmp, consoleText);
 
-  const pageErrors: string[] = (this as any).pageErrors || [];
+  const pageErrors: string[] = this.pageErrors || [];
   const pageErrorsText = pageErrors.length
     ? pageErrors.join("\n")
     : "No page errors captured.";
   writeTextFile(pageErrFileTmp, pageErrorsText);
 
-  const netLogs: NetEntry[] = (this as any).netLogs || [];
+  const netLogs: NetEntry[] = this.netLogs || [];
   let netText = "No network logs captured.";
   if (netLogs.length) {
     const lines: string[] = [];
@@ -553,9 +489,7 @@ Timestamp: ${new Date().toISOString()}
   writeTextFile(netFileTmp, netText);
   writeTextFile(netJsonFileTmp, JSON.stringify(netLogs, null, 2));
 
-  // ✅ Close Moodle Tab first if it exists
   await this.moodlePage?.close().catch(() => {});
-
   await this.page?.close().catch(() => {});
   await this.context?.close().catch(() => {});
   await this.browser?.close().catch(() => {});
@@ -576,7 +510,9 @@ Timestamp: ${new Date().toISOString()}
           fs.copyFileSync(originalPath, newPath);
           fs.unlinkSync(originalPath);
         }
-        const videoBuf = fs.readFileSync(newPath);
+
+        // Asynchronous File Read
+        const videoBuf = await fs.promises.readFile(newPath);
         await this.attach(videoBuf, "video/webm");
         await this.attach(`🎥 Video: ${newFileName}`, "text/plain");
       }
@@ -605,9 +541,8 @@ Timestamp: ${new Date().toISOString()}
 
   await this.attach(summary.join("\n"), "text/plain");
 
-  if (this.heal?.enabled) {
+  if (this.heal?.enabled)
     await this.attach(`Healwright enabled: ${this.heal.enabled}`, "text/plain");
-  }
   if (this.heal?.used) {
     const msg = `Failed scenario had a selector/locator issue, it was healed with Healwright.`;
     await this.attach(msg, "text/plain");

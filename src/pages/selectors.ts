@@ -50,8 +50,10 @@
 
     orgListingActions: {
       orgActions: [
+        'a.action_dropdown[data-bs-toggle="dropdown"]',
         'a.action_dropdown[data-toggle="dropdown"]',
         "a.action_dropdown",
+        'a[role="button"][aria-expanded]',
         'a[data-toggle="dropdown"]',
       ],
       orgDetailsAction: [

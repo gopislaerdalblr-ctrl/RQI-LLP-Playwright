@@ -1,6 +1,6 @@
 Feature: Merge User Actions UI Validation.
 
-  @smoke @merge @mergeUI
+  @smoke @merge @mergeUI @test
   Scenario: Merge user page should load successfully
     Given Launch the application
     Then Login with admin credentials
@@ -16,7 +16,7 @@ Feature: Merge User Actions UI Validation.
     Then Validate the UI elements on Merge user page
     Then Logout from the application
 
-    @merge
+    @merge @test
     Scenario: Ability to select account one with user id
     Given Launch the application
     Then Login with admin credentials
@@ -32,7 +32,7 @@ Feature: Merge User Actions UI Validation.
     Then Check if course is available or add the course as "courseId" and "courseId1"
 
 
-    @smoke @merge @samurai
+    @smoke @merge @samurai @test
   Scenario: Merge user page should load successfully for LMS organization
     Given Launch the application
     Then Login with admin credentials
@@ -50,7 +50,7 @@ Feature: Merge User Actions UI Validation.
     
 
 
-    @smoke @merge @mergeUI 
+    @smoke @merge @mergeUI @test
   Scenario: Merge user page should load successfully
     Given Launch the application
     Then the page should be accessible
@@ -80,7 +80,7 @@ Feature: Merge User Actions UI Validation.
 
 
 
-    @smoke @merge @samurai @elevatedAccess
+    @smoke @merge @samurai @elevatedAccess @test
   Scenario: Merge user page should load successfully for LMS organization
     Given Launch the application
     Then Login with admin credentials

@@ -1,5 +1,6 @@
 // src/utils/ui-actions.ts
 import type { World } from "../support/world";
+import { S } from "../pages/selectors"; // Ensure this import is correct for your structure
 
 function looksLikeSelectorFailure(err: unknown): boolean {
   const msg = errToString(err).toLowerCase();
@@ -35,6 +36,11 @@ export type ClickIfPresentOptions = {
   attachDebug?: boolean;
 };
 
+/**
+ * Enterprise Click Action:
+ * 1. Iterates through all provided selectors.
+ * 2. If all fail, attempts Healwright on the primary selector.
+ */
 export async function clickIfPresent(
   world: World,
   selectors: readonly string[],
@@ -60,53 +66,53 @@ export async function clickIfPresent(
           const text = ((await el.textContent().catch(() => "")) ?? "").trim();
           await safeAttach(
             world,
-            `Click: ${sel}\nIndex: ${i}\nText: ${text}\nHref: ${href}`,
+            `Manual Click Attempt: ${sel}\nIndex: ${i}\nText: ${text}\nHref: ${href}`,
           );
         }
 
         await el.scrollIntoViewIfNeeded().catch(() => {});
-        await el.click({ timeout: timeoutMs });
+        await el.click({ timeout: 5000 });
         return true;
       } catch (err: unknown) {
-        // Healwright fallback (only if enabled and page.heal exists)
-        if (
-          world.heal?.enabled &&
-          page?.heal &&
-          looksLikeSelectorFailure(err)
-        ) {
-          try {
-            await page.heal
-              .locator(sel, `Auto-heal fallback for click: ${sel}`)
-              .click({ timeout: timeoutMs });
-
-            world.heal.used = true;
-            world.heal.messages.push(
-              `Healwright: selector issue detected and healed for click on "${sel}".`,
-            );
-
-            await safeAttach(
-              world,
-              `Healwright used (click)\nSelector: ${sel}\nReason: ${errToString(err)}`,
-            );
-
-            return true;
-          } catch {
-            // continue trying other matches/selectors
-          }
-        }
+        continue;
       }
+    }
+  }
+
+  if (world.heal?.enabled && page?.heal) {
+    const primarySel = selectors[0];
+    try {
+      await safeAttach(
+        world,
+        `Standard selectors failed. Triggering Healwright for: ${primarySel}`,
+      );
+      await page.heal
+        .locator(primarySel, `Final AI recovery for: ${primarySel}`)
+        .click({ timeout: timeoutMs });
+      world.heal.used = true;
+      world.heal.messages.push(
+        `Healwright: Recovered click on "${primarySel}"`,
+      );
+      return true;
+    } catch (healErr) {
+      await safeAttach(
+        world,
+        `Healwright also failed: ${errToString(healErr)}`,
+      );
     }
   }
 
   if (strictClick) {
     throw new Error(
-      `clickIfPresent(strict): Could not click any element for selectors:\n- ${selectors.join("\n- ")}`,
+      `clickIfPresent(strict): Exhausted all ${selectors.length} selectors and AI healing failed.`,
     );
   }
-
   return false;
 }
 
+/**
+ * Enterprise Fill Action
+ */
 export async function fillIfPresent(
   world: World,
   selectors: readonly string[],
@@ -126,43 +132,82 @@ export async function fillIfPresent(
       const el = loc.nth(i);
       try {
         await el.waitFor({ state: "visible", timeout: 2000 });
-        await el.fill(value, { timeout: timeoutMs });
+        await el.fill(value, { timeout: 5000 });
         return true;
       } catch (err: unknown) {
-        if (
-          world.heal?.enabled &&
-          page?.heal &&
-          looksLikeSelectorFailure(err)
-        ) {
-          try {
-            await page.heal
-              .locator(sel, `Auto-heal fallback for fill: ${sel}`)
-              .fill(value, { timeout: timeoutMs });
-
-            world.heal.used = true;
-            world.heal.messages.push(
-              `Healwright: selector issue detected and healed for fill on "${sel}".`,
-            );
-
-            await safeAttach(
-              world,
-              `Healwright used (fill)\nSelector: ${sel}\nReason: ${errToString(err)}`,
-            );
-
-            return true;
-          } catch {
-            // continue
-          }
-        }
+        continue;
       }
     }
   }
 
-  if (strict) {
-    throw new Error(
-      `fillIfPresent(strict): Could not fill any element for selectors:\n- ${selectors.join("\n- ")}`,
-    );
+  if (world.heal?.enabled && page?.heal) {
+    const primarySel = selectors[0];
+    try {
+      await page.heal.locator(primarySel).fill(value, { timeout: timeoutMs });
+      world.heal.used = true;
+      return true;
+    } catch {
+      /* continue */
+    }
   }
 
+  if (strict)
+    throw new Error(
+      `fillIfPresent(strict) failed for: ${selectors.join(", ")}`,
+    );
   return false;
+}
+
+/**
+ * GLOBAL LOGOUT SOLUTION
+ * Handles profile dropdown, logout link resolution, and session clearing.
+ */
+export async function executeHardLogout(world: World): Promise<void> {
+  const page: any = world.page;
+
+  // 1. Open profile dropdown
+  await clickIfPresent(world, S.adminLogin.profileDropdown, {
+    timeoutMs: 5000,
+  });
+  await page.waitForTimeout(500);
+
+  // 2. Resolve logout URL from selector array
+  let targetUrl: string | null = null;
+  for (const sel of S.adminLogin.logoutLink) {
+    const loc = page.locator(sel);
+    const count = await loc.count().catch(() => 0);
+    if (!count) continue;
+
+    for (let i = 0; i < count; i++) {
+      const el = loc.nth(i);
+      const href = await el.getAttribute("href").catch(() => null);
+      const text = await el.textContent().catch(() => "");
+
+      // Filter for actual logout links
+      if (
+        href &&
+        (href.includes("signout") || href.includes("logout")) &&
+        /logout|sign\s?out/i.test(text || "")
+      ) {
+        targetUrl = new URL(href, page.url()).toString();
+        break;
+      }
+    }
+    if (targetUrl) break;
+  }
+
+  // 3. Perform Logout and Clear Data
+  if (targetUrl) {
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  }
+
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  const baseUrl = new URL("/", page.url()).toString();
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+  await safeAttach(world, `Hard Logout Complete. Session cleared.`);
 }

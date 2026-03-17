@@ -1,18 +1,18 @@
-// src/steps/org-products.steps.ts
-// Updated ONLY to fix the TypeScript errors you shared (arrays passed to locator, missing helpers, wrong selector key),
-// without changing your already-working “Add course” flow logic.
-
 import { Then } from "@cucumber/cucumber";
 import { expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { World } from "../support/world";
 import { S } from "../pages/selectors";
+import { ICustomWorld } from "../support/hooks";
 
 /**
  * Helper: click first visible selector from a list (your project pattern)
  */
-async function clickIfPresent(world: World, selectors: readonly string[]) {
+async function clickIfPresent(
+  world: ICustomWorld,
+  selectors: readonly string[],
+) {
   for (const sel of selectors) {
     const loc = world.page.locator(sel);
     const count = await loc.count().catch(() => 0);
@@ -195,7 +195,7 @@ function readCourseConfig(): CourseConfig {
 
 Then(
   "Check if course is available or add the course as {string} and {string}",
-  async function (this: World, courseArg1: string, courseArg2: string) {
+  async function (this: ICustomWorld, courseArg1: string, courseArg2: string) {
     const courseCfg = readCourseConfig();
 
     const resolveCourse = (arg: string) => {
@@ -428,7 +428,7 @@ Then(
   },
 );
 
-Then("Navigate to manage students page", async function (this: World) {
+Then("Navigate to manage students page", async function (this: ICustomWorld) {
   // Use your “selectors list” safe-click style (prevents array passed to page.click errors)
   const ok = await clickIfPresent(
     this,
@@ -439,7 +439,7 @@ Then("Navigate to manage students page", async function (this: World) {
 
 Then(
   "Import {int} students from file {string}",
-  async function (this: World, count: number, fileName: string) {
+  async function (this: ICustomWorld, count: number, fileName: string) {
     if (!count || count <= 0) {
       throw new Error(`Invalid student count: ${count}`);
     }

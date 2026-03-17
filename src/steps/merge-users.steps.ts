@@ -4,6 +4,7 @@ import { World } from "../support/world";
 import { S } from "../pages/selectors";
 import { fillIfPresent } from "../utils/ui-actions";
 import { waitForDebugger } from "node:inspector";
+import { ICustomWorld } from "../support/hooks";
 
 type ClickIfPresentOptions = {
   strictClick?: boolean; // if true, throw when nothing clicked
@@ -256,45 +257,51 @@ async function hardLogout(world: any): Promise<void> {
   }
 }
 
-Then("Navigate to Access Organization page", async function (this: World) {
-  await this.page.waitForTimeout(2000);
+Then(
+  "Navigate to Access Organization page",
+  async function (this: ICustomWorld) {
+    await this.page.waitForTimeout(2000);
 
-  await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
+    await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
 
-  await this.page.waitForLoadState("networkidle");
+    await this.page.waitForLoadState("networkidle");
 
-  await expect(
-    this.page.getByRole("link", { name: /Organi[sz]ation Details/ }),
-  ).toBeVisible({ timeout: 20000 });
+    await expect(
+      this.page.getByRole("link", { name: /Organi[sz]ation Details/ }),
+    ).toBeVisible({ timeout: 20000 });
 
-  await clickIfPresent(this, S.adminLogin.AccessOrganization);
+    await clickIfPresent(this, S.adminLogin.AccessOrganization);
 
-  console.log("Current URL:", this.page.url());
-  await this.attach(
-    `Navigated to Access Organization page: ${this.page.url()}`,
-    "text/plain",
-  );
-});
+    console.log("Current URL:", this.page.url());
+    await this.attach(
+      `Navigated to Access Organization page: ${this.page.url()}`,
+      "text/plain",
+    );
+  },
+);
 
-Then("Click on Support Action dropdown", async function (this: World) {
+Then("Click on Support Action dropdown", async function (this: ICustomWorld) {
   await this.page.waitForTimeout(2000);
 
   await clickIfPresent(this, S.adminLogin.SupportActionDropdown);
 });
 
-Then("Click on Merge Account option", async function (this: World) {
+Then("Click on Merge Account option", async function (this: ICustomWorld) {
   await this.page.waitForTimeout(2000);
 
   await clickIfPresent(this, S.adminLogin.MergeAccountOption);
 });
 
-Then("Merge user page should load successfully", async function (this: World) {
-  await this.page.waitForLoadState("networkidle");
-  const currentUrl = this.page.url();
-  console.log("Current Page URL:", currentUrl);
+Then(
+  "Merge user page should load successfully",
+  async function (this: ICustomWorld) {
+    await this.page.waitForLoadState("networkidle");
+    const currentUrl = this.page.url();
+    console.log("Current Page URL:", currentUrl);
 
-  await this.attach(currentUrl, "text/plain");
-});
+    await this.attach(currentUrl, "text/plain");
+  },
+);
 
 type PWWorld = {
   page: Page;
@@ -410,7 +417,7 @@ Then(
   },
 );
 
-Then("Logout from the application", async function (this: World) {
+Then("Logout from the application", async function (this: ICustomWorld) {
   await hardLogout(this);
 
   console.log("Current URL:", this.page.url());

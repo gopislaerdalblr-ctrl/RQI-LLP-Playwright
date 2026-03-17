@@ -81,7 +81,7 @@ Feature: Merge User Actions UI Validation.
 
 
     @smoke @merge @samurai @elevatedAccess @test
-  Scenario: Merge user page should load successfully for LMS organization
+  Scenario: Navigate to Global user management page.
     Given Launch the application
     Then Login with admin credentials
     Then Admin should be logged in successfully

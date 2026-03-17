@@ -153,12 +153,20 @@
     ],
 
     // --- New Locators properly nested inside adminLogin ---
-    GlobalUserDropDown: [
-      'a.dropdown-toggle:has-text("User Mgmt")',
-      'a.js-activated:has-text("User Mgmt")',
-      'li.dropdown:has(a:has-text("User Mgmt"))',
-      'text="User Mgmt"',
+    // GlobalUserDropDown: [
+    //   'a.dropdown-toggle:has-text("User Mgmt")',
+    //   'a.js-activated:has-text("User Mgmt")',
+    //   'li.dropdown:has(a:has-text("User Mgmt"))',
+    //   'text="User Mgmt"',
+    // ],
+
+    GlobalUserManagementWidget: [
+      "button#usermanage-tooltip", // Primary: Explicit ID
+      'button.admin-nav-icon:has-text("User Mgmt")', // Secondary: Class + Text combo
+      'button[data-toggle="tooltip"]:has(em.fa-user)', // Tertiary: Attribute + DOM Structure
+      '//button[@id="usermanage-tooltip"]', // Fallback: Strict XPath
     ],
+
     GlobalUserManagement: [
       'a:has-text("User Management")',
       'a[href="/admin/manageuser?clearsearch=yes"]',

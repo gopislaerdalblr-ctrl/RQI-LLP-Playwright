@@ -49,6 +49,18 @@
     },
 
     orgListingActions: {
+      OrgListingRow: [
+        "table tbody tr", // Primary: Standard HTML table row
+        ".rt-tr-group", // Secondary: Common React-Table row class
+        "//table//tbody//tr", // Fallback: Strict XPath
+      ],
+
+      ClearSearchButton: [
+        'a:has-text("Clear Search")', // Primary: The exact link text
+        'button:has-text("Clear Search")', // Secondary: Just in case it's a styled button
+        'text="Clear Search"', // Fallback: Broad text match
+      ],
+      
       orgActions: [
         'a.action_dropdown[data-bs-toggle="dropdown"]',
         'a.action_dropdown[data-toggle="dropdown"]',

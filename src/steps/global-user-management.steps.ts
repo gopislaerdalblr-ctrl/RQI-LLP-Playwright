@@ -11,33 +11,48 @@ import {
 Then(
   "Navigate to Global User Management page",
   async function (this: ICustomWorld) {
-    const dropdownSelectors = S.adminLogin.GlobalUserDropDown;
+    // 1. SHORT-CIRCUIT: Are we already there?
+    if (this.page.url().includes("/admin/manageuser")) {
+      await this.attach(
+        "Already on User Management page. Skipping dashboard navigation.",
+        "text/plain",
+      );
+      return;
+    }
 
-    // 1. GATEKEEPER: Wait for the specific "User Mgmt" link to be visible
-    // This prevents the script from clicking too early while the page is loading
-    await this.page.locator(dropdownSelectors[0]).first().waitFor({
-      state: "visible",
-      timeout: 20000,
+    // 2. WAIT FOR PAGE TO SETTLE: Ensure dashboard is completely loaded
+    await this.page.waitForLoadState("domcontentloaded");
+
+    // 3. FETCH SELECTORS: Strictly following standards (No hardcoded strings here)
+    const userMgmtWidgetSelectors = S.adminLogin.GlobalUserManagementWidget;
+
+    // 4. SYNCHRONIZATION: Wait for the primary widget button to be physically visible
+    const primaryWidget = this.page.locator(userMgmtWidgetSelectors[0]).first();
+    await primaryWidget.waitFor({ state: "visible", timeout: 20000 });
+
+    // 5. THE CLICK: Use your enterprise array-exhaustion utility
+    const clicked = await clickIfPresent(this, userMgmtWidgetSelectors, {
+      strictClick: false,
     });
 
-    // 2. THE CLICK: Use our utility
-    // Since we updated the selectors to include ":has-text", it will only click the right one
-    await clickIfPresent(this, dropdownSelectors, { strictClick: true });
+    // 6. NATIVE FALLBACK: If the widget has an overlay (like a tooltip glitching), force click it
+    if (!clicked) {
+      await this.attach(
+        "Standard click failed, attempting Native Force-Click on Dashboard Widget.",
+        "text/plain",
+      );
+      await primaryWidget.click({ force: true });
+    }
 
-    // 3. SECOND CLICK: Navigate to Global User Management link
-    // Ensure the menu item is visible before clicking
-    const managementLink = S.adminLogin.GlobalUserManagement;
-    await this.page
-      .locator(managementLink[0])
-      .first()
-      .waitFor({ state: "visible", timeout: 10000 });
-    await clickIfPresent(this, managementLink, { strictClick: true });
+    // 7. VERIFY NAVIGATION: Wait for URL change AND the network to quiet down
+    await this.page.waitForURL(
+      (url: URL) => url.href.includes("/admin/manageuser"),
+      { timeout: 30000 },
+    );
 
-    // 4. VERIFY
-    await this.page.waitForURL((url: URL) => !url.href.includes("login"), {
-      timeout: 30000,
-    });
-    expect(this.page.url()).toContain("/admin/manageuser");
+    // Final settling phase for the next step
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForLoadState("networkidle").catch(() => {});
   },
 );
 

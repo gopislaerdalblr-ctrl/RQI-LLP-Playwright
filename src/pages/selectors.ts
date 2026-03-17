@@ -49,6 +49,18 @@
     },
 
     orgListingActions: {
+      OrgListingRow: [
+        "table tbody tr", // Primary: Standard HTML table row
+        ".rt-tr-group", // Secondary: Common React-Table row class
+        "//table//tbody//tr", // Fallback: Strict XPath
+      ],
+
+      ClearSearchButton: [
+        'a:has-text("Clear Search")', // Primary: The exact link text
+        'button:has-text("Clear Search")', // Secondary: Just in case it's a styled button
+        'text="Clear Search"', // Fallback: Broad text match
+      ],
+      
       orgActions: [
         'a.action_dropdown[data-bs-toggle="dropdown"]',
         'a.action_dropdown[data-toggle="dropdown"]',
@@ -153,12 +165,20 @@
     ],
 
     // --- New Locators properly nested inside adminLogin ---
-    GlobalUserDropDown: [
-      'a.dropdown-toggle:has-text("User Mgmt")',
-      'a.js-activated:has-text("User Mgmt")',
-      'li.dropdown:has(a:has-text("User Mgmt"))',
-      'text="User Mgmt"',
+    // GlobalUserDropDown: [
+    //   'a.dropdown-toggle:has-text("User Mgmt")',
+    //   'a.js-activated:has-text("User Mgmt")',
+    //   'li.dropdown:has(a:has-text("User Mgmt"))',
+    //   'text="User Mgmt"',
+    // ],
+
+    GlobalUserManagementWidget: [
+      "button#usermanage-tooltip", // Primary: Explicit ID
+      'button.admin-nav-icon:has-text("User Mgmt")', // Secondary: Class + Text combo
+      'button[data-toggle="tooltip"]:has(em.fa-user)', // Tertiary: Attribute + DOM Structure
+      '//button[@id="usermanage-tooltip"]', // Fallback: Strict XPath
     ],
+
     GlobalUserManagement: [
       'a:has-text("User Management")',
       'a[href="/admin/manageuser?clearsearch=yes"]',

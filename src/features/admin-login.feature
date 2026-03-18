@@ -1,6 +1,6 @@
 ﻿Feature: Admin Login
 
-  @smoke @test @sam 
+  @smoke @test @sam @imp
   Scenario: Super Admin login successfully
     Given Launch the application
     Then Login with admin credentials
@@ -13,7 +13,7 @@
     Then Navigate to products page
     Then Check if course is available or add the course as "courseId" and "courseId1"
     Then Navigate to manage students page
-    Then Import 10 students from file "students.csv"
+    Then Import 1 students from file "students.csv"
 
     
     

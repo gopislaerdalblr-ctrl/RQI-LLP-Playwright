@@ -10,9 +10,9 @@ import fs from "node:fs";
  */
 const RUN_CONFIG = {
   // Change these defaults whenever you want
-  instance: "qa-samurai", // instance key from src/config/instances.json
+  instance: "maurya", // instance key from src/config/instances.json
   //tags: "@test or @regression",
-  tags: "@tcts1",
+  tags: "@test",
   parallel: 4,
 
   // NOTE:
@@ -22,7 +22,7 @@ const RUN_CONFIG = {
   //browser: "chromium" + "firefox" + "webkit", // chromium | firefox | webkit | "all" | "chromium+firefox+webkit"
   // browser: "all",
   browser: "chromium",
-  headless: false,
+  headless: true,
 
   // Toggle this to control dry run
   dryRun: false,

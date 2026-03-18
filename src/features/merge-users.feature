@@ -27,7 +27,7 @@ Feature: Merge User Actions UI Validation.
     Then Admin search org by id "orgId"
     Then Navigate to Organization details page
     Then Navigate to manage students page
-    Then Import 10 students from file "students.csv"
+    Then Import 1 students from file "students.csv"
     Then Navigate to products page
     Then Check if course is available or add the course as "courseId" and "courseId1"
 

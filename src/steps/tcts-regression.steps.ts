@@ -130,3 +130,22 @@ Then(
     );
   },
 );
+
+Then("Navigate to Learner Status page", async function (this: ICustomWorld) {
+  const learnerStatusSelector = S.adminLogin.learnerStatus.navLink[0];
+  await this.page
+    .locator(learnerStatusSelector)
+    .first()
+    .waitFor({ state: "visible", timeout: 20000 });
+
+  await clickIfPresent(this, S.adminLogin.learnerStatus.navLink, {
+    strictClick: true,
+  });
+
+  await this.page.waitForLoadState("domcontentloaded");
+
+  await this.attach(
+    `Navigated to Learner Status page: ${this.page.url()}`,
+    "text/plain",
+  );
+});

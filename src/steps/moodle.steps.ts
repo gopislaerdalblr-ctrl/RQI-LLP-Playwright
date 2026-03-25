@@ -1,14 +1,15 @@
 import { Given, Then } from "@cucumber/cucumber";
 import { World } from "../support/world";
-import { S } from "../ui/selectors";
+import { S } from "../pages/selectors";
 import * as fs from "fs";
 import * as path from "path";
-import { MoodleUI } from "../ui/MoodleUI";
+import { MoodleUI } from "../pages/moodle.page";
 import { saveCreatedUser } from "../utils/user-registry";
+import { ICustomWorld } from "../support/hooks";
 
 // --- STEP DEFINITIONS ---
 
-Given("Launch the moodle application", async function (this: World) {
+Given("Launch the moodle application", async function (this: ICustomWorld) {
   if (!this.instance.moodleUrl) {
     throw new Error(
       "Moodle URL not found! Ensure 'moodle' block exists in instances.json",
@@ -21,15 +22,18 @@ Given("Launch the moodle application", async function (this: World) {
   });
 });
 
-Then("Login with moodle admin credentials", async function (this: World) {
-  // Use the new Page Object class!
-  const moodle = new MoodleUI(this.moodlePage);
-  await moodle.loginAsAdmin();
-});
+Then(
+  "Login with moodle admin credentials",
+  async function (this: ICustomWorld) {
+    // Use the new Page Object class!
+    const moodle = new MoodleUI(this.moodlePage);
+    await moodle.loginAsAdmin();
+  },
+);
 
 Then(
   "I create a Moodle user on the fly and assign to course {string}",
-  async function (this: World, courseName: string) {
+  async function (this: ICustomWorld, courseName: string) {
     const moodle = new MoodleUI(this.moodlePage);
 
     // The POM handles the UI clicking, and returns the generated data
@@ -46,7 +50,7 @@ Then(
 
 Then(
   "I verify the on-the-fly user appears in Maurya student management",
-  async function (this: World) {
+  async function (this: ICustomWorld) {
     await this.page.bringToFront();
     const userToSearch = this.lastCreatedMoodleUser.UserId;
 
@@ -74,7 +78,7 @@ Then(
 
 Then(
   "I perform a bulk status check on the last {int} created users in Maurya",
-  async function (this: World, count: number) {
+  async function (this: ICustomWorld, count: number) {
     const filePath = path.resolve(
       process.cwd(),
       "src/config/executionUsers.json",

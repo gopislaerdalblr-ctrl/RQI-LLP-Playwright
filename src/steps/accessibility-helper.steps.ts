@@ -1,5 +1,5 @@
 import { Then } from "@cucumber/cucumber";
-import { AccessibilityHelper } from "../utils/AccessibilityHelper";
+import { AccessibilityHelper } from "../utils/accessibility-helper";
 import { pageFixture } from "../support/pageFixture";
 
 Then("the page should be accessible", async function () {

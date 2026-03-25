@@ -1,5 +1,5 @@
 import { S } from "./selectors";
-import { BasePage } from "./BasePage";
+import { BasePage } from "./base.page";
 
 export class MoodleUI extends BasePage {
   async loginAsAdmin() {

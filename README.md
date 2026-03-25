@@ -16,7 +16,7 @@ npm run check:env
 
 ```
 
-# 🎭 Playwright-Cucumber-TS Automation Framework
+# 🎭 RQI/LLP-Playwright Automation Framework
 
 ![Playwright](https://img.shields.io/badge/Playwright-Test-green)
 ![Cucumber](https://img.shields.io/badge/Cucumber-BDD-brightgreen)

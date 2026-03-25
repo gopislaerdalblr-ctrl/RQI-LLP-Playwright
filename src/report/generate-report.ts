@@ -86,6 +86,8 @@ async function generateReport() {
     reportSuiteAsScenarios: true,
     scenarioTimestamp: true,
     launchReport: false,
+    name: "RQI/LLP-Playwright",
+    brandTitle: "RQI/LLP-Playwright Report",
     metadata: {
       Browser: process.env.BROWSER || "unknown",
       Instance: meta.instance || process.env.INSTANCE || "unknown",

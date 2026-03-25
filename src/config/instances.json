@@ -14,7 +14,9 @@
     "baseUrl": "https://qa-samurai-llp.laerdalblr.in/admin",
     "subdomain": "qa-samurai-llp",
     "orgId": "20000712",
-    "orgId2": "20000713"
+    "orgId2": "20000713",
+    "orgId3": "20000714",
+    "orgId4": "20000726"
   },
   "preprodrqi1stop": {
     "env": "preprod",

@@ -140,7 +140,8 @@ export const S = {
       'a[href*="elearning_login"]',
     ],
     learnerStatus: {
-      navLink: ['a:has-text("Learner Status")', 'a[href*="learner_status"]'],
+      navLink: ['a:has-text("Learner Status")', 
+        'a[href*="learner_status"]'],
     },
 
     SupportActionDropdown: [

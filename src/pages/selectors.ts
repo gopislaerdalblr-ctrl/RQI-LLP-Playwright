@@ -1,4 +1,4 @@
-﻿export const S = {
+export const S = {
   adminLogin: {
     signIn: ["#sap-link", "button#sap-link", "a#sap-link"],
 
@@ -60,7 +60,7 @@
         'button:has-text("Clear Search")', // Secondary: Just in case it's a styled button
         'text="Clear Search"', // Fallback: Broad text match
       ],
-      
+
       orgActions: [
         'a.action_dropdown[data-bs-toggle="dropdown"]',
         'a.action_dropdown[data-toggle="dropdown"]',
@@ -139,6 +139,10 @@
       'a:has-text("Access Organization")',
       'a[href*="elearning_login"]',
     ],
+    learnerStatus: {
+      navLink: ['a:has-text("Learner Status")', 
+        'a[href*="learner_status"]'],
+    },
 
     SupportActionDropdown: [
       'a.dropdown-toggle:has-text("Support Action")',

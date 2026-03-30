@@ -25,7 +25,6 @@ Feature: TC/Ts Module regression scripts.
   Then Select Super admin role
   Then Navigate to Admin Dashboard
   Then Navigate to Organizations listing page
-  Then Admin search org by TC org id "orgId3"
-  Then Navigate to Organization details page
-  Then Navigate to products page
-  Then Check if course is available or add the course as "courseId" and "courseId1"
+  Then Admin search org by TS org id "orgId4"
+  Then Navigate to Access Organization page
+  Then Navigate to Learner Status page

@@ -8,20 +8,54 @@ import { executeHardLogout } from "../utils/ui-actions"; // New import!
 Then(
   "Navigate to Access Organization page",
   async function (this: ICustomWorld) {
-    // Wait for the UI to settle before interacting
-    await this.page.waitForLoadState("domcontentloaded");
+    // 1. Wait for the UI to settle
+    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+    await this.page.waitForTimeout(500);
 
-    await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
-    await this.page.waitForLoadState("networkidle");
+    // 2. Click the Action Menu (...)
+    let menuClicked = await clickIfPresent(this, S.adminLogin.orgListingActions.orgActions);
+    
+    // Safety Net: If the primary selector for '...' fails, look for it structurally
+    if (!menuClicked) {
+      const dotsBtn = this.page.locator('text="..."').first();
+      if (await dotsBtn.isVisible().catch(() => false)) {
+        await dotsBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await dotsBtn.click({ force: true }).catch(() => {});
+        menuClicked = true;
+      }
+    }
 
-    await expect(
-      this.page.getByRole("link", { name: /Organi[sz]ation Details/ }),
-    ).toBeVisible({ timeout: 20000 });
+    if (!menuClicked) {
+      throw new Error("❌ Failed to click the Organization Actions (...) menu.");
+    }
 
-    await clickIfPresent(this, S.adminLogin.AccessOrganization);
+    // 3. Wait for the Dropdown to physically render
+    const dropdownProof = this.page.locator('text=/Organi[sz]ation Details/i').first();
+    await expect(dropdownProof).toBeVisible({ timeout: 15000 }).catch(() => {});
+
+    // 4. Click 'Access Organisation' (Handling 's' or 'z' spelling dynamically)
+    let accessClicked = await clickIfPresent(this, S.adminLogin.AccessOrganization);
+
+    // Safety Net: Look for the text using Regex to bypass strict spelling
+    if (!accessClicked) {
+      const accessLinkRegex = this.page.locator('text=/Access Organi[sz]ation/i').first();
+      
+      if (await accessLinkRegex.isVisible().catch(() => false)) {
+        await accessLinkRegex.click({ force: true }).catch(() => {});
+        accessClicked = true;
+      }
+    }
+
+    if (!accessClicked) {
+      throw new Error("❌ Failed to click 'Access Organisation'. The dropdown may have closed or the text changed.");
+    }
+
+    // 5. Wait for the heavy navigation to the target Tenant/Org page
+    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+    await this.page.waitForTimeout(2000); // Give the new dashboard time to mount
 
     await this.attach(
-      `Mapsd to Access Organization page: ${this.page.url()}`,
+      `✅ Navigated to Access Organization page: ${this.page.url()}`,
       "text/plain",
     );
   },

@@ -41,6 +41,13 @@ export const S = {
         'input[type="text"]',
         'input[name="org_id"]',
       ],
+      OrganizationsLink: [
+          'a[href*="/admin/organizations"]',
+          'a:has-text("Organizations")',
+          'a.active:has-text("Organizations")',
+          'a[href$="/organizations"]',
+      ],
+
       searchButton: [
         "#search",
         "button.search_icon.organization-btn-top",
@@ -139,6 +146,123 @@ export const S = {
       'a:has-text("Access Organization")',
       'a[href*="elearning_login"]',
     ],
+    Assignments: [
+'a[href="/manage/assignments"]',
+'a:has-text("Assignments")',
+'a[role="button"]',
+'a[aria-haspopup="true"]',
+],
+CreateAssignment: [
+'a#btn_primary:has-text("Create Assignment")',
+'a[href*="add_assignments"]',
+'a:has-text("Create Assignment")',
+'a.btn_primary[data-toggle="modal"]',
+],
+ManualSelection: [
+'label[for="manual"]',
+'label:has-text("Manual")',
+'.form-check-label.big:has-text("Manual")',
+],
+AutomaticSelection: [
+'label[for="automatic"]',
+'label:has-text("Automatic")',
+'.form-check-label.big:has-text("Automatic")',
+],
+CourseCurriculumDropdown: [
+'span.filter-option:has-text("Select course/curriculum")',
+'span.filter-option.pull-left:has-text("Select course")',
+'.filter-option.pull-left',
+],
+CourseSearchInput: [
+'input[aria-label="Search"][role="textbox"]',
+'input.form-control[placeholder="Search"]',
+'input[autocomplete="off"][placeholder="Search"]',
+],
+SpecificDateRadio: [
+'label#specific_due_date_label',
+'input#radio_options[value="specific_due_date"]',
+'label:has-text("Specific Date")',
+'input[name="due_date"][value="specific_due_date"]',
+],
+AssignmentNextButton: [
+'a#addLearnersSection',
+'#addLearnersSection',
+'a.btn_primary:has-text("Next")',
+'a[href="javascript:void(0)"]#addLearnersSection',
+],
+AssignmentTitleInput: [
+'input#assignment_name',
+'input[name="assignment_name"]',
+'input[placeholder="Assignment Title"]',
+'#assignment_name',
+],
+CreateAssignmentButton: [
+'a#addassignmentmanual',
+'#addassignmentmanual',
+'a.btn_primary:has-text("Create Assignment")',
+'a[href="javascript:void(0)"]#addassignmentmanual',
+],
+AddLearnerButton: [
+'button#add-learners',
+'#add-learners',
+'button.btn_primary:has-text("Add Learner")',
+'button[data-target="#learnersDialog"]',
+],
+AssignmentSearchUser: [
+      'input[placeholder*="Search"]', 
+      '#searchUser'
+    ],
+SearchaAsignmentTitleInput: [
+'input#assignment_name',
+'input[name="assignment_name"]',
+'input[placeholder="Assignment Title"]',
+'input.form-control#assignment_name',
+],
+AssignmentSearchButton: [
+'button#search',
+'#search',
+'button:has-text("Search")',
+'button.btn_primary#search',
+],
+AssignmentDueDateInput: [
+      'input#assignment_specific_due_date',
+      '#assignment_specific_due_date',
+      'input[name="assignment_specific_due_date"]',
+      'input.datePicker#assignment_specific_due_date',
+],
+
+    CalendarActiveDays: [
+      'td.day:not(.old):not(.new)', 
+      'td:not(.ui-state-disabled):not(.disabled)'
+    ],
+    NoRecurrenceRadioLabel: [
+      'label:text-is("No")'
+    ],
+DueDateInput: [
+'input[name="due_date"]',
+'input#due_date',
+'input#specific_due_date',
+'input[placeholder*="Date"]',
+],
+ModalSearchInput: [
+'#learnersDialog input[type="search"]',
+'#learnersDialog input[placeholder="Search"]',
+'input.form-control.input-sm',
+'input[aria-controls="DataTables_Table_0"]',
+],
+ModalSearchButton: [
+'#learnersDialog button#search',
+'#learnersDialog button:has-text("Search")',
+'#learnersDialog .btn_primary:has-text("Search")',
+],
+ModalAddButton: [
+'#learnersDialog button#add-selected-learners',
+'#learnersDialog button:has-text("Add")',
+'button:has-text("Save")',
+'#addLearnerSubmit',
+],
+
+
     learnerStatus: {
       navLink: ['a:has-text("Learner Status")', 
         'a[href*="learner_status"]'],

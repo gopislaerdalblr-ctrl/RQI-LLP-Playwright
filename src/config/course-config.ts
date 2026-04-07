@@ -9,6 +9,15 @@ export type CourseConfig = {
 
 export function readCourseConfig(): CourseConfig {
   const p = path.resolve("src/config/course.json");
-  const raw = fs.readFileSync(p, "utf-8");
-  return JSON.parse(raw) as CourseConfig;
+  const raw = fs
+    .readFileSync(p, "utf-8")
+    .replace(/^\uFEFF/, "") 
+    .trim();
+
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`course.json is not valid JSON. Error: ${(e as Error).message}`);
+  }
 }
+

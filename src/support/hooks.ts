@@ -62,6 +62,9 @@ export interface ICustomWorld extends World {
   pageErrors?: string[];
   netLogs?: NetEntry[];
   reqStart?: Map<string, number>;
+  assignmentTitle?: string;
+  importedUserId?: string;
+  importedUserEmail?: string;
 }
 
 setDefaultTimeout(120_000);

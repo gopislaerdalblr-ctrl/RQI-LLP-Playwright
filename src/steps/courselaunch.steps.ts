@@ -6,6 +6,9 @@ import { clickIfPresent, fillIfPresent, tryGetFlashText } from "../utils/ui-acti
 import { readCourseConfig } from "../config/course-config";
 import * as fs from "fs";
 import * as path from "path";
+import { getTargetDateFromQuarter } from "../utils/date-helpers";
+import { sendCourseCompletion } from "../api/course-completion";
+
 
 
 Then('Navigate to Assignments page',async function (this: ICustomWorld) {
@@ -25,6 +28,11 @@ Then('Navigate to Assignments page',async function (this: ICustomWorld) {
 Then(
   "I create a manual assignment with a specific due date for course {string}",
   async function (this: ICustomWorld, courseKey: string) {
+    
+    const initialJitter = Math.floor(Math.random() * 5000) + 2000;
+    console.log(`\n[DEBUG] Parallel Run Detected: Staggering Assignment Creation start by ${initialJitter}ms...`);
+    await this.page?.waitForTimeout(initialJitter);
+
     const courseCfg = readCourseConfig() as any;
 
     const suffix = courseKey.match(/\d+$/)?.[0] || "";
@@ -135,7 +143,9 @@ Then(
     if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
     await this.page.waitForTimeout(2000);
 
-  
+    const learnerJitterDelay = Math.floor(Math.random() * 20000) + 5000;
+    console.log(`\n[DEBUG] Admin State Protection: Pausing ${learnerJitterDelay}ms before adding learner...`);
+    await this.page.waitForTimeout(learnerJitterDelay);
 
     const addLearnerClicked = await clickIfPresent(this, S.adminLogin.AddLearnerButton);
     if (!addLearnerClicked) throw new Error("[FATAL] Could not click Add Learner button.");
@@ -156,6 +166,10 @@ Then(
 
     await this.page.locator('button:has-text("Add")').last().click({ force: true }).catch(() => {});
     await this.page.waitForTimeout(2000);
+
+    const jitterDelay = Math.floor(Math.random() * 6000) + 2000;
+    console.log(`\n[DEBUG] Staggering final save execution by ${jitterDelay}ms to prevent conflicts...`);
+    await this.page.waitForTimeout(jitterDelay);
 
     const createFinalClicked = await clickIfPresent(this, S.adminLogin.CreateAssignmentButton);
     if (!createFinalClicked) throw new Error("[FATAL] Failed to click the final Create Assignment button.");
@@ -379,5 +393,274 @@ Then(
     
     
     console.log(`\n[✅ SUCCESS] User details saved to EXACT path: ${usersFilePath}\n`);
+  }
+);
+
+
+Then(
+  "I activate and launch the assigned course",
+  async function (this: ICustomWorld) {
+    if (!this.assignedCourseName) {
+      throw new Error("[FATAL] No assignedCourseName found in context. Cannot identify which course to launch.");
+    }
+
+    const courseName = this.assignedCourseName;
+    console.log(`\n[DEBUG] Attempting to Activate and Launch course: ${courseName}`);
+
+    
+    await this.page.waitForLoadState("networkidle");
+    await this.page.waitForTimeout(5000);
+
+    
+    const courseCards = this.page.locator('.card, [class*="course"], .list-group-item');
+    const myCourseCard = courseCards.filter({ hasText: courseName }).first();
+
+    await expect(myCourseCard, `Could not find a course card containing the text: ${courseName}`).toBeVisible({ timeout: 15000 });
+
+
+    const activateBtn = myCourseCard.locator(S.studentDashboard.activateBtn.join(', ')).first();
+    
+  
+    if (await activateBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`[DEBUG] 'Activate' button found for ${courseName}. Clicking it now...`);
+        await activateBtn.click();
+        
+        
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(4000); 
+    } else {
+        console.log(`[DEBUG] No 'Activate' button found (Course may already be active). Proceeding to Launch.`);
+    }
+
+    const launchBtn = myCourseCard.locator(S.studentDashboard.launchBtn.join(', ')).first();
+    await expect(launchBtn, `Could not find Launch/Start button for course: ${courseName}`).toBeVisible({ timeout: 15000 });
+
+    console.log(`[DEBUG] 'Launch' button found. Clicking it now...`);
+
+   
+    const [newPage] = await Promise.all([
+      this.context.waitForEvent('page').catch(() => null), 
+      launchBtn.click()
+    ]);
+
+    
+    if (newPage) {
+      console.log(`[DEBUG] Course launched in a NEW TAB. Switching context to the new tab.`);
+      await newPage.waitForLoadState("domcontentloaded");
+      await newPage.waitForTimeout(3000);
+      
+      
+      this.coursePlayerPage = newPage; 
+    } else {
+      console.log(`[DEBUG] Course launched in the SAME TAB.`);
+      await this.page.waitForLoadState("domcontentloaded");
+      await this.page.waitForTimeout(3000);
+      
+      
+      this.coursePlayerPage = this.page;
+    }
+
+    await this.attach(`Successfully Activated and Launched course: ${courseName}`, "text/plain");
+    console.log(`\n[✅ SUCCESS] Course '${courseName}' launched successfully!\n`);
+  }
+);
+
+Then(
+  "I launch and complete the assigned course for {string}",
+  async function (this: ICustomWorld, qtrInput: string) {
+    if (!this.assignedCourseName) {
+      throw new Error("[FATAL] No assignedCourseName found in context.");
+    }
+    if (!this.page || !this.context) {
+      throw new Error("[FATAL] Playwright page/context object is undefined.");
+    }
+
+    const courseName = this.assignedCourseName;
+    console.log(`\n[DEBUG] Processing Course: ${courseName} | Timeframe: ${qtrInput}`);
+
+    let modulesCompleted = 0;
+
+    // ==========================================
+    // 1. DYNAMIC LOOP (Handles Locked Dependencies)
+    // ==========================================
+    while (true) {
+        await this.page.bringToFront();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(5000); 
+
+        let startButtonsLoc = this.page.locator(S.studentDashboard.tableStartBtn.join(', '));
+        let buttonCount = await startButtonsLoc.count();
+
+        if (buttonCount === 0) {
+            const courseCards = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+            startButtonsLoc = courseCards.locator(S.studentDashboard.startBtn.join(', '));
+            buttonCount = await startButtonsLoc.count();
+        }
+
+        if (buttonCount === 0) {
+            console.log(`\n[DEBUG] 0 'START' buttons found. All modules for this course are complete!`);
+            break; 
+        }
+
+        console.log(`\n--- Found ${buttonCount} available START button(s). Processing the next one... ---`);
+        
+        const currentStartBtn = startButtonsLoc.first();
+        await expect(currentStartBtn).toBeVisible({ timeout: 10000 });
+
+        let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+        await currentStartBtn.click();
+        let newPage = await newTabPromise; 
+
+        // ==========================================
+        // 2. HANDLE DATE PICKER
+        // ==========================================
+        const dateModal = this.page.locator(S.studentDashboard.datePickerModal.join(', ')).first();
+        if (await dateModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+            const dateParts = getTargetDateFromQuarter(qtrInput);
+            const dateInput = dateModal.locator(S.studentDashboard.dateInput.join(', ')).first();
+            const inputType = await dateInput.getAttribute('type');
+            const placeholder = (await dateInput.getAttribute('placeholder') || '').toUpperCase();
+            
+            let formattedDate = '';
+            if (inputType === 'date') formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+            else if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
+            else if (placeholder.includes('YYYY/MM') || placeholder.includes('YYYY-MM')) formattedDate = `${dateParts.yyyy}/${dateParts.mm}/${dateParts.dd}`;
+            else formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
+
+            await dateInput.fill(formattedDate);
+            const saveBtn = dateModal.locator(S.studentDashboard.saveDateBtn.join(', ')).first();
+            newTabPromise = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+            await saveBtn.click();
+            newPage = await newTabPromise;
+        }
+
+        // ==========================================
+        // 3. EXTRACT ID & TRIGGER API
+        // ==========================================
+        const activePage = newPage ? newPage : this.page;
+        await activePage.waitForLoadState("domcontentloaded");
+        await activePage.waitForTimeout(4000);
+
+        const currentUrl = activePage.url();
+        const sourceIdMatch = currentUrl.match(/[?&]sourceId=([^&]+)/i) || currentUrl.match(/\/course\/(\d+)/i) || currentUrl.match(/[?&]id=([^&]+)/i);
+        const sourceId = sourceIdMatch ? sourceIdMatch[1] : null;
+
+        if (!sourceId) throw new Error(`[FATAL] Could not extract Source ID from URL: ${currentUrl}`);
+
+        const apiResponse = await sendCourseCompletion({ sourcedId: sourceId });
+        if (apiResponse.status >= 400) throw new Error(`[FATAL] API Completion failed. Status: ${apiResponse.status}`);
+
+        // ==========================================
+        // 4. CLICK 'EXIT EXERCISE'
+        // ==========================================
+        const exitBtn = activePage.locator(S.coursePlayer.exitBtn.join(', ')).first();
+        if (await exitBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+            const tabClosedPromise = newPage ? activePage.waitForEvent('close', { timeout: 10000 }).catch(() => null) : Promise.resolve(null);
+            await exitBtn.click();
+            await tabClosedPromise; 
+        } else {
+            if (newPage && !newPage.isClosed()) await newPage.close();
+        }
+
+        modulesCompleted++;
+    }
+
+    // ==========================================
+    // 5. POST-COMPLETION CONDITIONAL POPUPS
+    // ==========================================
+    // A. Handle CE/CME Acknowledge (If it exists)
+    console.log(`[DEBUG] Checking for CE/CME Acknowledge popup...`);
+    const cmeModal = this.page.locator(S.postCompletion.cmeModal.join(', ')).first();
+    
+    if (await cmeModal.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[DEBUG] CE/CME Popup found! Clicking Acknowledge...`);
+        const ackBtn = cmeModal.locator(S.postCompletion.acknowledgeBtn.join(', ')).first();
+        await ackBtn.click();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
+    } else {
+        console.log(`[DEBUG] No CME popup configured for this course. Skipping.`);
+    }
+
+    // B. Handle Email eCard (If it exists)
+    console.log(`[DEBUG] Checking for Email eCard popup...`);
+    const eCardModal = this.page.locator(S.postCompletion.eCardModal.join(', ')).first();
+    
+    if (await eCardModal.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[DEBUG] Email eCard Popup found! Clicking Cancel...`);
+        const cancelBtn = eCardModal.locator(S.postCompletion.eCardCancelBtn.join(', ')).first();
+        await cancelBtn.click();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
+    } else {
+        console.log(`[DEBUG] No eCard popup configured for this course. Skipping.`);
+    }
+
+    // ==========================================
+    // 6. CONDITIONAL EVALUATION FILLER
+    // ==========================================
+    console.log(`[DEBUG] Checking if an Evaluation is required...`);
+    const evalBtn = this.page.locator(S.postCompletion.evaluationBtn.join(', ')).first();
+    
+    if (await evalBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[DEBUG] Evaluation required. Launching evaluation...`);
+        
+        let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+        await evalBtn.click();
+        let evalPage = await newTabPromise || this.page;
+
+        await evalPage.waitForLoadState("networkidle");
+        await evalPage.waitForTimeout(3000);
+
+        console.log(`[DEBUG] Auto-filling Evaluation Form...`);
+
+        const textAreas = evalPage.locator(S.postCompletion.evalTextAreas.join(', '));
+        const textAreaCount = await textAreas.count();
+        for (let i = 0; i < textAreaCount; i++) {
+            await textAreas.nth(i).fill("Completed via Automation");
+        }
+
+        await evalPage.evaluate(() => {
+            const radios = Array.from(document.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+            const uniqueNames = new Set(radios.map(r => r.name).filter(n => n)); 
+            uniqueNames.forEach(name => {
+                const firstRadio = document.querySelector(`input[type="radio"][name="${name}"]`) as HTMLInputElement;
+                if (firstRadio) firstRadio.click();
+            });
+        });
+
+        const submitEvalBtn = evalPage.locator(S.postCompletion.submitEvalBtn.join(', ')).first();
+        await submitEvalBtn.click();
+        
+        if (evalPage !== this.page) {
+            await evalPage.waitForTimeout(3000);
+            if (!evalPage.isClosed()) await evalPage.close();
+        }
+        
+        await this.page.bringToFront();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(4000);
+    } else {
+        console.log(`[DEBUG] No Evaluation configured for this course. Skipping.`);
+    }
+
+    // ==========================================
+    // 7. FINAL REPORTING & SCREENSHOT
+    // ==========================================
+    console.log(`[DEBUG] Capturing success screenshot...`);
+    const screenshot = await this.page.screenshot({ fullPage: true });
+    await this.attach(screenshot, "image/png");
+
+    const userInfo = {
+        "Instance": this.instance?.env || "UNKNOWN",
+        "User Email": this.importedUserEmail || "UNKNOWN",
+        "First Name": this.importedUserFirstName || "UNKNOWN",
+        "Last Name": this.importedUserLastName || "UNKNOWN",
+        "Course Completed": courseName,
+        "Total Modules Fired": modulesCompleted
+    };
+
+    await this.attach(`✅ COURSE COMPLETION SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
+    console.log(`\n[✅ SUCCESS] Course '${courseName}' fully completed, evaluated, and documented!`);
   }
 );

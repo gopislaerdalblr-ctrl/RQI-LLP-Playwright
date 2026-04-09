@@ -69,6 +69,7 @@ export interface ICustomWorld extends World {
   importedUserLastName?: string;
   assignedCourseName?: string;
   extractedResetUrl?: string;
+  coursePlayerPage?: Page;
 }
 
 setDefaultTimeout(120_000);

@@ -406,6 +406,48 @@ export const S = {
       'button[type="submit"]:visible',
       'input[value="Log In"]:visible'
     ]
+  },
+  studentDashboard: {
+    courseCardByText: (courseName: string) => 
+      `div.card, div.course-card, div.list-item, div[class*="course"]:has-text("${courseName}")`,
+    courseStartBtn: (courseName: string) => 
+      `div:has-text("${courseName}") button:has-text("Start"), div:has-text("${courseName}") button:has-text("Launch")`,
+    launchBtn: ['button:has-text("Launch")', 'button:has-text("Start")', 'a:has-text("Launch")'],
+    courseRowByText: (courseName: string) => 
+      `.list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}"), div.card:has-text("${courseName}")`,
+    activateBtn: ['button:has-text("Activate")', 'a:has-text("Activate")'],
+    tableStartBtn: [
+      'table tr button:has-text("START")',
+      'table tr a:has-text("START")',
+      'tr:has-text("Online Activity") button:has-text("START")',
+      'tr:has-text("eLearning") button:has-text("START")',
+      '.table button:has-text("START")'
+    ],
+    startBtn: ['button:has-text("Start")', 'button:has-text("Launch")', 'a:has-text("Start")'],
+    datePickerModal: ['.modal:has-text("Date")', '[role="dialog"]:has-text("Date")', 'div.test-date-modal', 'div.modal-content:has-text("Date")'],
+    dateInput: ['input[type="date"]', 'input[placeholder*="MM"]', 'input[placeholder*="DD"]', 'input[name="testDate"]', 'input[placeholder*="MM/DD/YYYY"]'],
+    saveDateBtn: ['button:has-text("Save")', 'button:has-text("Continue")', 'button:has-text("Submit")']
+  },
+  coursePlayer: {
+    exitBtn: [
+      'button:has-text("Exit Exercise")', 
+      'a:has-text("Exit Exercise")', 
+      'button:has-text("Exit")', 
+      '.exit-button'
+    ]
+  },
+  postCompletion: {
+    cmeModal: ['.modal:has-text("CE/CME Credits")', '[role="dialog"]:has-text("CE/CME Credits")', 'div:has-text("eligible to claim CE/CME")'],
+    acknowledgeBtn: ['button:has-text("Acknowledge")'],
+    
+    // NEW: eCard Email Modal Selectors
+    eCardModal: ['.modal:has-text("Email eCard")', '[role="dialog"]:has-text("Email eCard")'],
+    eCardCancelBtn: ['button:has-text("Cancel")'],
+    
+    // Selectors for the Evaluation phase
+    evaluationBtn: ['a:has-text("EVALUATION")', 'button:has-text("EVALUATION")', 'div.step-item:has-text("Evaluation") button', 'a:has-text("Evaluation")'],
+    evalTextAreas: ['textarea', 'input[type="text"].eval-text'],
+    submitEvalBtn: ['button:has-text("Submit")', 'input[value="Submit"]', 'button:has-text("Save")']
   }
 
 } as const;

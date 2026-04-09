@@ -20,3 +20,5 @@ Feature: BLS TrueStart and perpetual course launch and completion for CTC user.
     Then Navigate to Assignments page
     Then I create a manual assignment with a specific due date for course "courseId"
     Then I verify the assignment was created successfully with 1 learner added
+    Then I retrieve the password reset link from Zimbra for the newly created user
+    Then I reset the user password, login, and save the user details

@@ -53,5 +53,10 @@
   "moodle": {
     "moodleUrl": "https://moodle-staging.laerdalblr.in/login/index.php",
     "env": "staging"
+  },
+
+  "zimbra":{
+    "env": "qa",
+    "baseUrl":"https://rqimail.laerdalblr.in/"
   }
 }

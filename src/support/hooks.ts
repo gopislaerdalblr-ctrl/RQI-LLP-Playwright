@@ -65,11 +65,39 @@ export interface ICustomWorld extends World {
   assignmentTitle?: string;
   importedUserId?: string;
   importedUserEmail?: string;
+  importedUserFirstName?: string;
+  importedUserLastName?: string;
+  assignedCourseName?: string;
+  extractedResetUrl?: string;
 }
 
 setDefaultTimeout(120_000);
 
 // --- Helper Functions ---
+
+// ✅ ADDED: Zimbra Universal Helpers
+export function getZimbraCredentials() {
+  const secretPath = path.resolve("src", "data", "secrets", "zimbra.json");
+  if (!fs.existsSync(secretPath)) {
+    throw new Error(`[FATAL] Zimbra credentials file not found at: ${secretPath}`);
+  }
+  let fileContent = fs.readFileSync(secretPath, "utf-8");
+  
+  fileContent = fileContent.replace(/^\uFEFF/, "").trim(); 
+  return JSON.parse(fileContent);
+}
+
+export function getZimbraUrl() {
+  const instancePath = path.resolve("src","config","instances.json"); 
+  if (!fs.existsSync(instancePath)) {
+    throw new Error(`[FATAL] instance.json file not found at: ${instancePath}`);
+  }
+  let fileContent = fs.readFileSync(instancePath, "utf-8");
+  fileContent = fileContent.replace(/^\uFEFF/, "").trim(); 
+  const config = JSON.parse(fileContent);
+  return config.zimbra.baseUrl;
+}
+
 function ensureDir(p: string) {
   fs.mkdirSync(p, { recursive: true });
 }
@@ -150,6 +178,7 @@ async function captureUIErrors(page: Page): Promise<string[]> {
             errors.push(`UI Alert: ${txt}`);
         });
       const bodyText = document.body.innerText || "";
+  
       if (bodyText.includes("502 Bad Gateway"))
         errors.push("Page contains: 502 Bad Gateway");
       if (bodyText.includes("404 Not Found"))
@@ -185,7 +214,7 @@ AfterStep(async function (this: ICustomWorld, { result }) {
 
     const buf = await this.page.screenshot({ path: fullPath, fullPage: true });
     await this.attach(buf, "image/png");
-    await this.attach(`URL: ${this.page.url()}`, "text/plain");
+    await this.attach(`URL: \n${this.page.url()}`, "text/plain");
 
     this._failedStepScreenshotCaptured = true;
   } catch (e) {
@@ -224,6 +253,7 @@ Before(async function (this: ICustomWorld, scenario) {
     instanceKey as SecretsInstanceKey,
     cfg.env as SecretsEnv,
   );
+
   const course = loadCourseConfig();
   this.courseConfig = course;
 
@@ -249,6 +279,7 @@ Before(async function (this: ICustomWorld, scenario) {
 
   const context: BrowserContext = await browser.newContext({
     ...contextOptions,
+    ignoreHTTPSErrors: true,
     recordVideo: {
       dir: path.resolve("reports/_tmp/videos"),
       size: { width: 1280, height: 720 },
@@ -449,7 +480,7 @@ Timestamp: ${new Date().toISOString()}
   ensureDir(tmpLogsDir);
   const safeScenario = safeFilePart(scenarioName);
   const baseFile = `${runName}__${safeScenario}`;
-
+  
   const consoleFileTmp = path.join(tmpLogsDir, `${baseFile}__console.log`);
   const pageErrFileTmp = path.join(tmpLogsDir, `${baseFile}__pageerrors.log`);
   const netFileTmp = path.join(tmpLogsDir, `${baseFile}__network.log`);

@@ -41,6 +41,13 @@ export const S = {
         'input[type="text"]',
         'input[name="org_id"]',
       ],
+      OrganizationsLink: [
+          'a[href*="/admin/organizations"]',
+          'a:has-text("Organizations")',
+          'a.active:has-text("Organizations")',
+          'a[href$="/organizations"]',
+      ],
+
       searchButton: [
         "#search",
         "button.search_icon.organization-btn-top",
@@ -139,11 +146,123 @@ export const S = {
       'a:has-text("Access Organization")',
       'a[href*="elearning_login"]',
     ],
+    Assignments: [
+      'a[href="/manage/assignments"]',
+      'a:has-text("Assignments")',
+      'a[role="button"]',
+      'a[aria-haspopup="true"]',
+    ],
+    CreateAssignment: [
+      'a#btn_primary:has-text("Create Assignment")',
+      'a[href*="add_assignments"]',
+      'a:has-text("Create Assignment")',
+      'a.btn_primary[data-toggle="modal"]',
+    ],
+    ManualSelection: [
+      'label[for="manual"]',
+      'label:has-text("Manual")',
+      '.form-check-label.big:has-text("Manual")',
+    ],
+    AutomaticSelection: [
+      'label[for="automatic"]',
+      'label:has-text("Automatic")',
+      '.form-check-label.big:has-text("Automatic")',
+    ],
+    CourseCurriculumDropdown: [
+      'span.filter-option:has-text("Select course/curriculum")',
+      'span.filter-option.pull-left:has-text("Select course")',
+      '.filter-option.pull-left',
+    ],
+    CourseSearchInput: [
+      'input[aria-label="Search"][role="textbox"]',
+      'input.form-control[placeholder="Search"]',
+      'input[autocomplete="off"][placeholder="Search"]',
+    ],
+    SpecificDateRadio: [
+      'label#specific_due_date_label',
+      'input#radio_options[value="specific_due_date"]',
+      'label:has-text("Specific Date")',
+      'input[name="due_date"][value="specific_due_date"]',
+    ],
+    AssignmentNextButton: [
+      'a#addLearnersSection',
+      '#addLearnersSection',
+      'a.btn_primary:has-text("Next")',
+      'a[href="javascript:void(0)"]#addLearnersSection',
+    ],
+    AssignmentTitleInput: [
+      'input#assignment_name',
+      'input[name="assignment_name"]',
+      'input[placeholder="Assignment Title"]',
+      '#assignment_name',
+    ],
+    CreateAssignmentButton: [
+      'a#addassignmentmanual',
+      '#addassignmentmanual',
+      'a.btn_primary:has-text("Create Assignment")',
+      'a[href="javascript:void(0)"]#addassignmentmanual',
+    ],
+    AddLearnerButton: [
+      'button#add-learners',
+      '#add-learners',
+      'button.btn_primary:has-text("Add Learner")',
+      'button[data-target="#learnersDialog"]',
+    ],
+    AssignmentSearchUser: [
+      'input[placeholder*="Search"]', 
+      '#searchUser'
+    ],
+    SearchaAsignmentTitleInput: [
+      'input#assignment_name',
+      'input[name="assignment_name"]',
+      'input[placeholder="Assignment Title"]',
+      'input.form-control#assignment_name',
+    ],
+    AssignmentSearchButton: [
+      'button#search',
+      '#search',
+      'button:has-text("Search")',
+      'button.btn_primary#search',
+    ],
+    AssignmentDueDateInput: [
+      'input#assignment_specific_due_date',
+      '#assignment_specific_due_date',
+      'input[name="assignment_specific_due_date"]',
+      'input.datePicker#assignment_specific_due_date',
+    ],
+    CalendarActiveDays: [
+      'td.day:not(.old):not(.new)', 
+      'td:not(.ui-state-disabled):not(.disabled)'
+    ],
+    NoRecurrenceRadioLabel: [
+      'label:text-is("No")'
+    ],
+    DueDateInput: [
+      'input[name="due_date"]',
+      'input#due_date',
+      'input#specific_due_date',
+      'input[placeholder*="Date"]',
+    ],
+    ModalSearchInput: [
+      '#learnersDialog input[type="search"]',
+      '#learnersDialog input[placeholder="Search"]',
+      'input.form-control.input-sm',
+      'input[aria-controls="DataTables_Table_0"]',
+    ],
+    ModalSearchButton: [
+      '#learnersDialog button#search',
+      '#learnersDialog button:has-text("Search")',
+      '#learnersDialog .btn_primary:has-text("Search")',
+    ],
+    ModalAddButton: [
+      '#learnersDialog button#add-selected-learners',
+      '#learnersDialog button:has-text("Add")',
+      'button:has-text("Save")',
+      '#addLearnerSubmit',
+    ],
     learnerStatus: {
-      navLink: ['a:has-text("Learner Status")', 
-        'a[href*="learner_status"]'],
+      navLink: ['a:has-text("Learner Status")', 'a[href*="learner_status"]'],
     },
-
     SupportActionDropdown: [
       'a.dropdown-toggle:has-text("Support Action")',
       'a[data-toggle="dropdown"]:has-text("Support Action")',
@@ -167,22 +286,12 @@ export const S = {
       'a:has-text("Logout - Org2000209")',
       'a:has-text("Logout")',
     ],
-
-    // --- New Locators properly nested inside adminLogin ---
-    // GlobalUserDropDown: [
-    //   'a.dropdown-toggle:has-text("User Mgmt")',
-    //   'a.js-activated:has-text("User Mgmt")',
-    //   'li.dropdown:has(a:has-text("User Mgmt"))',
-    //   'text="User Mgmt"',
-    // ],
-
     GlobalUserManagementWidget: [
-      "button#usermanage-tooltip", // Primary: Explicit ID
-      'button.admin-nav-icon:has-text("User Mgmt")', // Secondary: Class + Text combo
-      'button[data-toggle="tooltip"]:has(em.fa-user)', // Tertiary: Attribute + DOM Structure
-      '//button[@id="usermanage-tooltip"]', // Fallback: Strict XPath
+      "button#usermanage-tooltip", 
+      'button.admin-nav-icon:has-text("User Mgmt")', 
+      'button[data-toggle="tooltip"]:has(em.fa-user)', 
+      '//button[@id="usermanage-tooltip"]', 
     ],
-
     GlobalUserManagement: [
       'a:has-text("User Management")',
       'a[href="/admin/manageuser?clearsearch=yes"]',
@@ -233,4 +342,70 @@ export const S = {
     createBtn: ["#id_submitbutton"],
     errorMsg: [".form-control-feedback", ".alert-danger"],
   },
+
+  zimbra: {
+    usernameInput: ['input#username', 'input[name="username"]'],
+    passwordInput: ['input#password', 'input[name="password"]'],
+    loginBtn: ['input.ZLoginButton', 'button:has-text("Sign In")'],
+    searchInput: ['input#app-02-search-input', 'input.search_input'],
+    searchBtn: ['div#app-02-search-button', 'button:has-text("Search")'],
+    emailRow: ['div.MsgHeader:has-text("Account created")', 'tr:has-text("Account created")'],
+    emailIframe: ['iframe#msg-body-iframe', 'iframe'],
+    resetLinkUrl: ['a:has-text("here"), a[href*="reset_password"]'],
+    searchInputStandard: ['input#searchField', 'input[name="sq"]', 'input.searchField', 'input[type="text"]'],
+    searchBtnStandard: ['input[type="submit"][value="Search"], button:has-text("Search")'],
+    emailLinkStandard: ['a:has-text("Account created")']
+  },
+
+  // ✅ UPDATED: Password Reset Screen Selectors
+  resetPassword: {
+    newPasswordInput: [
+      'input[name="newPassword"]', 
+      'input[placeholder*="New Password"]',
+      "xpath=(//input[@type='password'])[1]" 
+    ],
+    confirmPasswordInput: [
+      'input[name="confirmPassword"]', 
+      'input[placeholder*="Confirm"]',
+      "xpath=(//input[@type='password'])[2]" 
+    ],
+    submitBtn: [
+      'button:has-text("Create Password")', 
+      'input[value="Create Password"]',
+      'a:has-text("Create Password")'
+    ],
+    returnToLoginLink: [
+      'button:has-text("Next")',
+      'a:has-text("Next")',
+      'input[value="Next"]',
+      'a:has-text("return to login page")', 
+      'a:has-text("Return to Login")'
+    ]
+  },
+
+  // ✅ Main RQI Student Login Screen Selectors
+  studentLogin: {
+    loginBtnHomepage: [
+      'a[aria-label="Login"]:visible', 
+      'a[href*="/sap/login"]:visible', 
+      'a.sf-button:has-text("Login"):visible'
+    ], 
+    emailInput: [
+      'input[placeholder*="Username or email"]:visible', 
+      'input[name="username"]:visible', 
+      'input[data-gigya-name="loginID"]:visible',
+      'input[type="text"]:visible'
+    ],
+    passwordInput: [
+      'input[name="password"]:visible', 
+      'input[placeholder*="Password"]:visible',
+      'input[type="password"]:visible'
+    ],
+    submitLoginBtn: [
+      'button:has-text("Log In"):visible', 
+      'button[type="submit"]:visible',
+      'input[value="Log In"]:visible'
+    ]
+  }
+
 } as const;

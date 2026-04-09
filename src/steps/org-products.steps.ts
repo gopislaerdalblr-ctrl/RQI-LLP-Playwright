@@ -409,6 +409,10 @@ Then(
     const generatedPath = path.join(downloadsDir, `${runName}__${fileName}`);
     fs.writeFileSync(generatedPath, rows.join("\n"), "utf-8");
 
+    this.importedUserEmail = createdUsers[0].email;
+    this.importedUserFirstName = createdUsers[0].firstName;
+    this.importedUserLastName = createdUsers[0].lastName;
+
     await this.attach(
       `✅ Created ${createdUsers.length} users:\n` +
         createdUsers

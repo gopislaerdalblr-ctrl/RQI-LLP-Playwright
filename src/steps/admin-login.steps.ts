@@ -1,4 +1,4 @@
-﻿import { Given, When, Then } from "@cucumber/cucumber";
+import { Given, When, Then } from "@cucumber/cucumber";
 import { expect } from "@playwright/test";
 import { S } from "../pages/selectors";
 import { ICustomWorld } from "../support/hooks";
@@ -204,3 +204,18 @@ Then("Navigate to products page", async function (this: ICustomWorld) {
     "text/plain",
   );
 });
+
+
+
+Then('Navigate back to Organizations listing page',async function (this: ICustomWorld) {
+           
+            const clicked = await clickIfPresent(this, S.adminLogin.orgListing.OrganizationsLink);
+
+  if (!clicked) {
+    throw new Error(" Failed to find or click the Organizations link.");
+  }
+  await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+  await this.attach(`Mapsd back to: ${this.page.url()}`, "text/plain");
+
+         });
+

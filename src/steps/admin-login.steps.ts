@@ -3,6 +3,7 @@ import { expect } from "@playwright/test";
 import { S } from "../pages/selectors";
 import { ICustomWorld } from "../support/hooks";
 import { clickIfPresent, fillIfPresent } from "../utils/ui-actions";
+import { getAdminForCurrentWorker } from "../utils/credential-manager";
 
 Given("Launch the application", async function (this: ICustomWorld) {
   await this.page.goto(this.instance.baseUrl, {
@@ -11,29 +12,28 @@ Given("Launch the application", async function (this: ICustomWorld) {
 });
 
 Then("Login with admin credentials", async function (this: ICustomWorld) {
-  // 1. Click "Sign in"
+  
   await clickIfPresent(this, S.adminLogin.signIn);
 
-  // 2. GATEKEEPER: Wait for Gigya/Login form to attach to DOM
-  // Batch runs often lag here; waiting 30s for the email field is safer.
+  
   const emailSelector = S.adminLogin.email[0];
   await this.page.locator(emailSelector).first().waitFor({
     state: "attached",
     timeout: 30000,
   });
 
-  // 3. Fill Credentials (Iterates through array + Healwright fallback)
-  await fillIfPresent(this, S.adminLogin.email, this.adminEmail, {
+  const adminCreds = getAdminForCurrentWorker();
+  await fillIfPresent(this, S.adminLogin.email, adminCreds.email, {
     strict: true,
   });
-  await fillIfPresent(this, S.adminLogin.password, this.adminPassword, {
+  await fillIfPresent(this, S.adminLogin.password, adminCreds.password, {
     strict: true,
   });
 
-  // 4. Submit and wait for the Auth redirect to complete
+ 
   await clickIfPresent(this, S.adminLogin.submit, { strictClick: true });
 
-  // 5. REDIRECT CHECKPOST: Don't move to next step until login page is gone
+  
   await this.page.waitForURL((url: URL) => !url.href.includes("login"), {
     timeout: 30000,
   });
@@ -84,7 +84,7 @@ Then("Navigate to Admin Dashboard", async function (this: ICustomWorld) {
 Then(
   "Navigate to Organizations listing page",
   async function (this: ICustomWorld) {
-    // Ensure Sidebar/Nav is visible before clicking
+    
     const navSelector = S.adminLogin.admindashboard.OrgListingNav[0];
     await this.page
       .locator(navSelector)
@@ -129,7 +129,7 @@ Then(
 
     if (!orgId) throw new Error(`OrgId lookup failed for: "${key}"`);
 
-    // Smart Fill and Search
+    
     await fillIfPresent(this, S.adminLogin.orgListing.searchInput, orgId, {
       strict: true,
     });
@@ -137,7 +137,7 @@ Then(
       strictClick: true,
     });
 
-    // Verify search results appeared
+    
     await expect(this.page.locator(`text=${orgId}`).first()).toBeVisible({
       timeout: 15000,
     });
@@ -147,16 +147,15 @@ Then(
 Then(
   "Navigate to Organization details page",
   async function (this: ICustomWorld) {
-    // 1. SMART WAIT: Use the exact Bootstrap 5 attribute found in your outerHTML
+    
     const kababSelector = 'a.action_dropdown[data-bs-toggle="dropdown"]';
 
-    // Wait for it to be attached (it exists in code) then visible (user can see it)
+    
     const kababLocator = this.page.locator(kababSelector).first();
     await kababLocator.waitFor({ state: "attached", timeout: 20000 });
     await kababLocator.waitFor({ state: "visible", timeout: 10000 });
 
-    // 2. THE CLICK: Use our smart utility to handle the array and AI healing
-    // This will now find the button immediately because the selector matches the HTML
+    
     const actionsClicked = await clickIfPresent(
       this,
       S.adminLogin.orgListingActions.orgActions,
@@ -169,7 +168,7 @@ Then(
       );
     }
 
-    // 3. MENU SELECTION: Click the details link from the dropdown
+    
     await clickIfPresent(
       this,
       S.adminLogin.orgListingActions.orgDetailsAction,
@@ -186,7 +185,7 @@ Then(
 );
 
 Then("Navigate to products page", async function (this: ICustomWorld) {
-  // Ensure the product tab/link is visible
+  
   const productSelector = S.adminLogin.orgProducts.orgProducts[0];
   await this.page
     .locator(productSelector)

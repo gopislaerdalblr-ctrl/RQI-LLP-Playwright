@@ -1,0 +1,24 @@
+{
+  "instances": {
+    "maurya": {
+  "adminPool": [
+        {
+          "email": "adminloginoct_13@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "adminctcjune23_update@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "adminloginoct_15@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "Admindelete_01@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        }
+      ]
+    }
+  }
+}

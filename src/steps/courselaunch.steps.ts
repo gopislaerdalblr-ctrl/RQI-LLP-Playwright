@@ -544,15 +544,151 @@ Then(
     }
 
     const courseName = this.assignedCourseName;
+    
+    // ==========================================
+    // 1. DATE CALCULATION & CONSOLE INJECTION
+    // ==========================================
+    const dateParts = getTargetDateFromQuarter(qtrInput);
+    const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+    
     console.log(`\n[DEBUG] Processing Course: ${courseName} | Timeframe: ${qtrInput}`);
+    console.log(`[DEBUG] Calculated Target Date: YYYY:${dateParts.yyyy} MM:${dateParts.mm} DD:${dateParts.dd}`);
+
+    const currentDate = new Date();
+    // JS months are 0-indexed, so subtract 1
+    const targetDateObj = new Date(Number(dateParts.yyyy), Number(dateParts.mm) - 1, Number(dateParts.dd));
+
+    if (targetDateObj < currentDate) {
+        console.log(`[DEBUG] Past date detected! Injecting 'testActivateDate = ${targetFormattedDate}' into browser console BEFORE Activation...`);
+        
+        // 1. Evaluate immediately on the current DOM context
+        await this.page.evaluate((dateStr: string) => {
+            (window as any).testActivateDate = dateStr;
+        }, targetFormattedDate);
+
+        // 2. Add Init Script: Guarantees the variable survives page reloads/navigations
+        await this.page.addInitScript(`
+            window.testActivateDate = '${targetFormattedDate}';
+            var testActivateDate = '${targetFormattedDate}';
+        `);
+        await this.page.waitForTimeout(1000); 
+    }
+
+    await this.page.bringToFront();
+    await this.page.waitForLoadState("networkidle");
+
+    // ==========================================
+    // 1.5 CLICK ACTIVATE & LAUNCH 
+    // ==========================================
+    console.log(`[DEBUG] Checking for ACTIVATE button...`);
+    const activateBtn = this.page.locator('button:has-text("ACTIVATE"), a:has-text("ACTIVATE")').first();
+    
+    if (await activateBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        console.log(`[DEBUG] ACTIVATE button found! Clicking it now...`);
+        await activateBtn.click({ force: true });
+        await this.page.waitForLoadState("networkidle");
+    }
+
+    console.log(`[DEBUG] Checking for LAUNCH button...`);
+    const launchBtn = this.page.locator('button:has-text("LAUNCH"), a:has-text("LAUNCH"), button:has-text("Launch")').first();
+    
+    if (await launchBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[DEBUG] LAUNCH button found! Clicking it now...`);
+        await launchBtn.click({ force: true });
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(3000); // Give LMS time to transition
+    }
+
+    // ==========================================
+    // HELPER: THE WORKING MANUAL TYPING + BLUR FILLER
+    // ==========================================
+    const fillDateSafely = async (dateInputLocator: any) => {
+        await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
+        
+        await dateInputLocator.click({ force: true });
+        await this.page.waitForTimeout(500);
+
+        await this.page.keyboard.press('Control+A'); 
+        await this.page.keyboard.press('Backspace'); 
+        await this.page.waitForTimeout(500);
+
+        const inputType = await dateInputLocator.getAttribute('type');
+        const placeholder = (await dateInputLocator.getAttribute('placeholder') || '').toUpperCase();
+        
+        let formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+        if (inputType !== 'date') {
+            if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
+            else if (placeholder.includes('MM/DD') || placeholder.includes('MM-DD')) formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
+        }
+
+        console.log(`[DEBUG] Typing date: ${formattedDate}`);
+        if (inputType === 'date') {
+            await dateInputLocator.fill(formattedDate, { force: true });
+        } else {
+            await dateInputLocator.pressSequentially(formattedDate, { delay: 100 });
+        }
+        await this.page.waitForTimeout(1000); 
+
+        console.log(`[DEBUG] Safely blurring input to close calendar...`);
+        await dateInputLocator.blur().catch(() => {});
+        
+        // Click a safe background spot just in case the popup is still physically blocking the screen
+        await this.page.locator('h1, body').first().click({ force: true, position: { x: 5, y: 5 } }).catch(() => {});
+        await this.page.waitForTimeout(500);
+
+        // Failsafe check
+        const currentValue = await dateInputLocator.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+            console.log(`[DEBUG] WARNING: Calendar wiped the value! Forcing it via JavaScript...`);
+            await dateInputLocator.evaluate((el: HTMLInputElement, val: string) => {
+                el.value = val;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }, formattedDate);
+            await this.page.waitForTimeout(500);
+        } else {
+            console.log(`[DEBUG] Value successfully retained in input box: ${currentValue}`);
+        }
+    };
+
+    // ==========================================
+    // 0. THE GATEKEEPER: INLINE DATE VS CURRICULUM
+    // ==========================================
+    console.log(`[DEBUG] Scanning page for Inline Date Picker or Curriculum Table...`);
+    
+    const inlineSubmitBtn = this.page.locator('button:has-text("SUBMIT"), input[value="SUBMIT" i]').first();
+    const tableStartBtn = this.page.locator(S.studentDashboard.tableStartBtn.join(', ')).first();
+
+    const isInlineDateVisible = await Promise.race([
+        inlineSubmitBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false),
+        tableStartBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => false).catch(() => false)
+    ]);
+
+    if (isInlineDateVisible) {
+        console.log(`[DEBUG] Inline Date form is blocking the curriculum. Processing date...`);
+        
+        const inlineDateInput = this.page.locator('input[name="test_today_date"], input[name="testDate"], input[type="date"], input[placeholder*="YYYY"]').first();
+        
+        await fillDateSafely(inlineDateInput);
+        
+        console.log(`[DEBUG] Clicking SUBMIT button...`);
+        await inlineSubmitBtn.click({ force: true });
+        
+        console.log(`[DEBUG] Inline Date submitted. Waiting for curriculum table...`);
+        await tableStartBtn.waitFor({ state: 'visible', timeout: 20000 });
+    } else {
+        console.log(`[DEBUG] No inline date picker found. Curriculum is ready.`);
+    }
 
     let modulesCompleted = 0;
 
-
+    // ==========================================
+    // 1. DYNAMIC LOOP (Handles Locked Dependencies)
+    // ==========================================
     while (true) {
-      await this.page.bringToFront();
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(5000);
+        await this.page.bringToFront();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(5000); 
 
       let startButtonsLoc = this.page.locator(S.studentDashboard.tableStartBtn.join(', '));
       let buttonCount = await startButtonsLoc.count();
@@ -573,30 +709,32 @@ Then(
       const currentStartBtn = startButtonsLoc.first();
       await expect(currentStartBtn).toBeVisible({ timeout: 10000 });
 
-      let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
-      await currentStartBtn.click();
-      let newPage = await newTabPromise;
+        let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+        await currentStartBtn.click();
+        let newPage = await newTabPromise; 
 
+        // ==========================================
+        // 2. HANDLE DATE PICKER
+        // ==========================================
+        const dateModal = this.page.locator(S.studentDashboard.datePickerModal.join(', ')).first();
+        if (await dateModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+            const dateParts = getTargetDateFromQuarter(qtrInput);
+            const dateInput = dateModal.locator(S.studentDashboard.dateInput.join(', ')).first();
+            const inputType = await dateInput.getAttribute('type');
+            const placeholder = (await dateInput.getAttribute('placeholder') || '').toUpperCase();
+            
+            let formattedDate = '';
+            if (inputType === 'date') formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+            else if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
+            else if (placeholder.includes('YYYY/MM') || placeholder.includes('YYYY-MM')) formattedDate = `${dateParts.yyyy}/${dateParts.mm}/${dateParts.dd}`;
+            else formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
 
-      const dateModal = this.page.locator(S.studentDashboard.datePickerModal.join(', ')).first();
-      if (await dateModal.isVisible({ timeout: 4000 }).catch(() => false)) {
-        const dateParts = getTargetDateFromQuarter(qtrInput);
-        const dateInput = dateModal.locator(S.studentDashboard.dateInput.join(', ')).first();
-        const inputType = await dateInput.getAttribute('type');
-        const placeholder = (await dateInput.getAttribute('placeholder') || '').toUpperCase();
-
-        let formattedDate = '';
-        if (inputType === 'date') formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
-        else if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
-        else if (placeholder.includes('YYYY/MM') || placeholder.includes('YYYY-MM')) formattedDate = `${dateParts.yyyy}/${dateParts.mm}/${dateParts.dd}`;
-        else formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
-
-        await dateInput.fill(formattedDate);
-        const saveBtn = dateModal.locator(S.studentDashboard.saveDateBtn.join(', ')).first();
-        newTabPromise = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
-        await saveBtn.click();
-        newPage = await newTabPromise;
-      }
+            await dateInput.fill(formattedDate);
+            const saveBtn = dateModal.locator(S.studentDashboard.saveDateBtn.join(', ')).first();
+            newTabPromise = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+            await saveBtn.click();
+            newPage = await newTabPromise;
+        }
 
 
       const activePage = newPage ? newPage : this.page;
@@ -609,8 +747,8 @@ Then(
 
       if (!sourceId) throw new Error(`[FATAL] Could not extract Source ID from URL: ${currentUrl}`);
 
-      const apiResponse = await sendCourseCompletion({ sourcedId: sourceId });
-      if (apiResponse.status >= 400) throw new Error(`[FATAL] API Completion failed. Status: ${apiResponse.status}`);
+        const apiResponse = await sendCourseCompletion({ sourcedId: sourceId });
+        if (apiResponse.status >= 400) throw new Error(`[FATAL] API Completion failed. Status: ${apiResponse.status}`);
 
 
       const exitBtn = activePage.locator(S.coursePlayer.exitBtn.join(', ')).first();
@@ -625,32 +763,35 @@ Then(
       modulesCompleted++;
     }
 
-
+    // ==========================================
+    // 5. POST-COMPLETION CONDITIONAL POPUPS
+    // ==========================================
+    // A. Handle CE/CME Acknowledge (If it exists)
     console.log(`[DEBUG] Checking for CE/CME Acknowledge popup...`);
     const cmeModal = this.page.locator(S.postCompletion.cmeModal.join(', ')).first();
 
     if (await cmeModal.isVisible({ timeout: 5000 }).catch(() => false)) {
-      console.log(`[DEBUG] CE/CME Popup found! Clicking Acknowledge...`);
-      const ackBtn = cmeModal.locator(S.postCompletion.acknowledgeBtn.join(', ')).first();
-      await ackBtn.click();
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(2000);
+        console.log(`[DEBUG] CE/CME Popup found! Clicking Acknowledge...`);
+        const ackBtn = cmeModal.locator(S.postCompletion.acknowledgeBtn.join(', ')).first();
+        await ackBtn.click();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
     } else {
-      console.log(`[DEBUG] No CME popup configured for this course. Skipping.`);
+        console.log(`[DEBUG] No CME popup configured for this course. Skipping.`);
     }
 
-
+    // B. Handle Email eCard (If it exists)
     console.log(`[DEBUG] Checking for Email eCard popup...`);
     const eCardModal = this.page.locator(S.postCompletion.eCardModal.join(', ')).first();
 
     if (await eCardModal.isVisible({ timeout: 5000 }).catch(() => false)) {
-      console.log(`[DEBUG] Email eCard Popup found! Clicking Cancel...`);
-      const cancelBtn = eCardModal.locator(S.postCompletion.eCardCancelBtn.join(', ')).first();
-      await cancelBtn.click();
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(2000);
+        console.log(`[DEBUG] Email eCard Popup found! Clicking Cancel...`);
+        const cancelBtn = eCardModal.locator(S.postCompletion.eCardCancelBtn.join(', ')).first();
+        await cancelBtn.click();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
     } else {
-      console.log(`[DEBUG] No eCard popup configured for this course. Skipping.`);
+        console.log(`[DEBUG] No eCard popup configured for this course. Skipping.`);
     }
 
 
@@ -664,10 +805,10 @@ Then(
       await evalBtn.click();
       let evalPage = await newTabPromise || this.page;
 
-      await evalPage.waitForLoadState("networkidle");
-      await evalPage.waitForTimeout(3000);
+        await evalPage.waitForLoadState("networkidle");
+        await evalPage.waitForTimeout(3000);
 
-      console.log(`[DEBUG] Auto-filling Evaluation Form...`);
+        console.log(`[DEBUG] Auto-filling Evaluation Form...`);
 
       const textAreas = evalPage.locator(S.postCompletion.evalTextAreas.join(', '));
       const textAreaCount = await textAreas.count();
@@ -684,19 +825,19 @@ Then(
         });
       });
 
-      const submitEvalBtn = evalPage.locator(S.postCompletion.submitEvalBtn.join(', ')).first();
-      await submitEvalBtn.click();
-
-      if (evalPage !== this.page) {
-        await evalPage.waitForTimeout(3000);
-        if (!evalPage.isClosed()) await evalPage.close();
-      }
-
-      await this.page.bringToFront();
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(4000);
+        const submitEvalBtn = evalPage.locator(S.postCompletion.submitEvalBtn.join(', ')).first();
+        await submitEvalBtn.click();
+        
+        if (evalPage !== this.page) {
+            await evalPage.waitForTimeout(3000);
+            if (!evalPage.isClosed()) await evalPage.close();
+        }
+        
+        await this.page.bringToFront();
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(4000);
     } else {
-      console.log(`[DEBUG] No Evaluation configured for this course. Skipping.`);
+        console.log(`[DEBUG] No Evaluation configured for this course. Skipping.`);
     }
 
 
@@ -705,12 +846,12 @@ Then(
     await this.attach(screenshot, "image/png");
 
     const userInfo = {
-      "Instance": this.instance?.env || "UNKNOWN",
-      "User Email": this.importedUserEmail || "UNKNOWN",
-      "First Name": this.importedUserFirstName || "UNKNOWN",
-      "Last Name": this.importedUserLastName || "UNKNOWN",
-      "Course Completed": courseName,
-      "Total Modules Fired": modulesCompleted
+        "Instance": this.instance?.env || "UNKNOWN",
+        "User Email": this.importedUserEmail || "UNKNOWN",
+        "First Name": this.importedUserFirstName || "UNKNOWN",
+        "Last Name": this.importedUserLastName || "UNKNOWN",
+        "Course Completed": courseName,
+        "Total Modules Fired": modulesCompleted
     };
 
     await this.attach(` COURSE COMPLETION SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");

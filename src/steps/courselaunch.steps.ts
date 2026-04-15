@@ -377,7 +377,6 @@ Then(
 
     const newPassword = "Welcome@123!";
 
-
     await this.page.goto(this.extractedResetUrl, { waitUntil: "networkidle" });
     await this.page.waitForTimeout(2000);
 
@@ -391,32 +390,23 @@ Then(
     const returnClicked = await clickIfPresent(this, S.resetPassword.returnToLoginLink);
     if (!returnClicked) throw new Error("[FATAL] Could not click Return to Login / Next.");
 
-
     await this.page.waitForTimeout(2000);
 
-    console.log(`[DEBUG] Checking if navigation menu is collapsed on the landing page...`);
+    const hamburgerMenu = this.page.locator(S.studentLogin.hamburgerMenu.join(', ')).first();
 
-
-    const hamburgerMenu = this.page.locator('button.navbar-toggler, .navbar-toggle, [aria-label="Toggle navigation"], .mobile-menu-btn, .header-menu-icon, .navbar-header button, .mat-icon-button, svg.icon-hamburger').first();
-
-
-    if (await hamburgerMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
-      console.log("[DEBUG] Collapsed mobile menu detected! Expanding navigation...");
-
-
+    if (await hamburgerMenu.isVisible({ timeout: 5000 }).catch(() => false)) {
       await hamburgerMenu.evaluate((el: HTMLElement) => el.click()).catch(() => {
         return hamburgerMenu.click({ force: true });
       });
-
-
       await this.page.waitForTimeout(1500);
     }
 
-
     const homepageLoginBtn = this.page.locator(S.studentLogin.loginBtnHomepage.join(', ')).first();
-    await homepageLoginBtn.waitFor({ state: "visible", timeout: 15000 });
-    await homepageLoginBtn.click();
+    await homepageLoginBtn.waitFor({ state: "attached", timeout: 15000 });
 
+    await homepageLoginBtn.evaluate((el: HTMLElement) => el.click()).catch(async () => {
+      await homepageLoginBtn.click({ force: true });
+    });
 
     await this.page.waitForLoadState("networkidle");
     await this.page.waitForTimeout(4000);
@@ -434,14 +424,12 @@ Then(
     await this.page.waitForLoadState("domcontentloaded");
     await this.page.waitForTimeout(10000);
 
-
     const currentUrl = this.page.url();
     let exactInstance = this.instance?.env || "UNKNOWN_INSTANCE";
     const envMatch = currentUrl.match(/(?:qa|uat|dev)-([^.]+)\./i);
     if (envMatch && envMatch[1]) {
       exactInstance = envMatch[1];
     }
-
 
     const dataDir = path.join(process.cwd(), "src", "data");
     if (!fs.existsSync(dataDir)) {
@@ -451,7 +439,6 @@ Then(
     const usersFilePath = path.join(dataDir, "users.json");
     let usersList: any[] = [];
 
-
     if (fs.existsSync(usersFilePath)) {
       try {
         const fileContent = fs.readFileSync(usersFilePath, "utf-8").replace(/^\uFEFF/, "").trim();
@@ -459,7 +446,6 @@ Then(
           usersList = JSON.parse(fileContent);
         }
       } catch (e) {
-        console.log("[WARNING] Could not parse existing users.json, starting fresh.");
       }
     }
 
@@ -476,9 +462,6 @@ Then(
     fs.writeFileSync(usersFilePath, JSON.stringify(usersList, null, 4), "utf-8");
 
     await this.attach(`Successfully logged in and saved user data to users.json:\n${JSON.stringify(newUserRecord, null, 2)}`, "text/plain");
-
-
-    console.log(`\n[ SUCCESS] User details saved to EXACT path: ${usersFilePath}\n`);
   }
 );
 

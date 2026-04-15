@@ -529,7 +529,7 @@ Then(
 
 Then(
   "I launch and complete the assigned course for {string}",
-  { timeout: 240 * 1000 }, // 4 MINUTES TIMEOUT - Prevents Cucumber from killing the test on long courses!
+  { timeout: 240 * 1000 }, 
   async function (this: ICustomWorld, qtrInput: string) {
     if (!this.assignedCourseName) {
       throw new Error("[FATAL] No assignedCourseName found in context.");
@@ -547,10 +547,10 @@ Then(
     console.log(`[DEBUG] Timeframe: ${qtrInput} | Target Date: ${targetFormattedDate}`);
     console.log(`======================================================\n`);
 
-    // The purest form of the string, exactly as you type it.
+    
     const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
 
-    // FORCED INJECTION: This makes the browser paste the text into the console on EVERY page load
+    
     await this.page.addInitScript(rawConsoleScript);
 
     await this.page.bringToFront();
@@ -767,17 +767,15 @@ Then(
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(2000);
 
-      // ==========================================
-      // FINAL POST-EVAL DATE PICKER (With Timeout Overriden)
-      // ==========================================
+     
       console.log(`[DEBUG] Checking for Post-Evaluation Inline Date Picker...`);
       const postEvalInlineSubmitBtn = this.page.locator(S.studentDashboard.inlineSubmitBtn.join(', ')).first();
 
-      // Changed to 10000ms just to give the dashboard plenty of time to reload after evaluation closes
+      
       if (await postEvalInlineSubmitBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
         console.log(`[DEBUG] Post-Evaluation Inline Date Picker found! Restoring previous date...`);
 
-        // Ensure the lock variable is set in the console one more time
+        
         await this.page.evaluate(rawConsoleScript).catch(() => { });
         await this.page.waitForTimeout(1000);
 

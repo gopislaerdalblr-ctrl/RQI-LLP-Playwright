@@ -326,5 +326,21 @@
         "User last name": "auto_last_17762538279700528",
         "Course Assigned to user": "RQI® BLS Provider - True Start",
         "Instance": "maurya"
+    },
+    {
+        "orgid": "2000229",
+        "User email": "auto_first_17762544223660784@rqimail.laerdalblr.in",
+        "User first name": "auto_first_17762544223660784",
+        "User last name": "auto_last_17762544223660784",
+        "Course Assigned to user": "RQI® BLS Provider - True Start",
+        "Instance": "maurya"
+    },
+    {
+        "orgid": "2000229",
+        "User email": "auto_first_17762554516020426@rqimail.laerdalblr.in",
+        "User first name": "auto_first_17762554516020426",
+        "User last name": "auto_last_17762554516020426",
+        "Course Assigned to user": "RQI® BLS Provider - True Start",
+        "Instance": "maurya"
     }
 ]

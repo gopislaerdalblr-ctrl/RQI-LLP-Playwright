@@ -103,41 +103,85 @@ export const S = {
       ],
       submitAddProduct: ["#submitBtn"],
       courseVisibleText: (text: string) => `text=${text}`,
+      productsTable: ['table:has(th:has-text("PRODUCT CODE"))'],
+      dataTablesInfo: [
+        '.dataTables_info',
+        'div.dataTables_info',
+        "[id$='_info']",
+      ],
+      flashSuccess: [
+        '.alert-success',
+        '.flash-success',
+        'div:has-text("added successfully")',
+      ],
     },
     manageStudents: {
-      // ✅ Navigation
       manageStudentsNav: ['a:has-text("Manage Students")'],
-
-      // ✅ Import Demographic Data button (top right)
       importDemographicBtn: [
         'button:has-text("Import Demographic Data")',
         'a:has-text("Import Demographic Data")',
       ],
-
-      // ✅ Download CSV template link inside modal
       downloadTemplateLink: [
         'a:has-text("download a formatted blank CSV file")',
         'a[href*="download"]',
       ],
-
-      // ✅ File input (Choose File)
       chooseFileInput: ['input[type="file"]'],
-
-      // ✅ Upload button inside modal
       uploadBtn: ['button:has-text("Upload")', 'input[value="Upload"]'],
-
-      // ✅ Search input (User ID / First Name / filters)
       searchUserInput: [
         'input[placeholder*="User"]',
         'input[name*="user"]',
         'input[id*="user"]',
       ],
-
-      // ✅ Search icon / button
       searchBtn: [
         "button:has(i.fa-search)",
         "a:has(i.fa-search)",
         'button:has-text("Search")',
+      ],
+      csvDownloadFallback: [
+        'a:has-text("download"):has-text("CSV")',
+        'a:has-text("download"):has-text("template")',
+        'a[href*="download"]',
+        'a[href*=".csv"]',
+      ],
+      hiddenFileInput: ['input#upload[type="file"]'],
+      inputUploadBtn: [
+        'input[type="submit"][value="Upload"]',
+        'input[type="button"][value="Upload"]',
+        'input[value="Upload"]',
+      ],
+      anyUploadBtn: [
+        'button:has-text("Upload")',
+        'a:has-text("Upload")',
+      ],
+      importSuccessMsg: ['text=/your import request was processed successfully/i'],
+      modalCloseBtn: [
+        'button:has-text("Close")',
+        'input[value="Close"]',
+        'a:has-text("Close")',
+      ],
+      modalCloseBtnX: ['button.close'],
+      emptyStateText: ['text="Please search and/or select filters to view the record."'],
+      resultsTable: [
+        'table#learnerTableList',
+        'table.dataTable',
+      ],
+      noRecordsText: [
+        'text="No data available in table"',
+        'text="No records found"',
+      ],
+      paginationContainer: [
+        'div.dataTables_paginate',
+        '.dataTables_paginate',
+        'nav[aria-label*="pagination"]',
+      ],
+      paginationNextBtn: [
+        'a:has-text("Next")',
+        'button:has-text("Next")',
+        'li:has-text("Next") a',
+      ],
+      paginationPage1Btn: [
+        'a:has-text("1")',
+        'button:has-text("1")',
       ],
     },
 
@@ -320,6 +364,29 @@ export const S = {
       'a[href*="/admin/newrole/"]',
       'a[href^="/admin/newrole/ZFhObGN"]',
     ],
+    passwordFieldCheck: ['input[type="password"]'],
+    loadingSpinner: [
+      '.loading',
+      '.spinner',
+      '#loading-image',
+    ],
+    specificDateLabel: ['label'],
+    addLearnerConfirmBtn: ['button:has-text("Add")'],
+    assignmentSuccessBanner: ['text="Assignment was created successfully."'],
+    assignmentSearchOmniBtn: [
+      'button:has-text("Search")',
+      'input[type="submit"][value="Search"]',
+      'input[type="button"][value="Search"]',
+      '[aria-label="Search"]',
+      '.btn-search',
+      '#search-btn',
+    ],
+    assignmentResultRow: ['table.dataTable tbody tr'],
+    mergeUsers: {
+      dotsMenuFallback: ['text="..."'] as (string | RegExp)[],
+      orgDetailsDropdownProof: [/Organi[sz]ation Details/i] as (string | RegExp)[],
+      accessOrganizationRegex: [/Access Organi[sz]ation/i] as (string | RegExp)[],
+    },
   },
 
   moodle: {
@@ -441,7 +508,34 @@ export const S = {
     startBtn: ['button:has-text("Start")', 'button:has-text("Launch")', 'a:has-text("Start")'],
     datePickerModal: ['.modal:has-text("Date")', '[role="dialog"]:has-text("Date")', 'div.test-date-modal', 'div.modal-content:has-text("Date")'],
     dateInput: ['input[type="date"]', 'input[placeholder*="MM"]', 'input[placeholder*="DD"]', 'input[name="testDate"]', 'input[placeholder*="MM/DD/YYYY"]'],
-    saveDateBtn: ['button:has-text("Save")', 'button:has-text("Continue")', 'button:has-text("Submit")']
+    saveDateBtn: ['button:has-text("Save")', 'button:has-text("Continue")', 'button:has-text("Submit")'],
+    courseCards: [
+      '.card',
+      '[class*="course"]',
+      '.list-group-item',
+    ],
+    activateBtnUppercase: [
+      'button:has-text("ACTIVATE")',
+      'a:has-text("ACTIVATE")',
+    ],
+    launchBtnUppercase: [
+      'button:has-text("LAUNCH")',
+      'a:has-text("LAUNCH")',
+      'button:has-text("Launch")',
+    ],
+    inlineSubmitBtn: [
+      'button:has-text("SUBMIT")',
+      'input[value="SUBMIT" i]',
+    ],
+    inlineDateInput: [
+      'input[name="test_today_date"]',
+      'input[name="testDate"]',
+      'input[type="date"]',
+      'input[placeholder*="YYYY"]',
+    ],
+  },
+  courseLaunch: {
+    safeClickTarget: ['h1', 'body'],
   },
   coursePlayer: {
     exitBtn: [

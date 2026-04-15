@@ -88,7 +88,7 @@ Then("Click on search icon", async function (this: ICustomWorld) {
 
   // 3. Optional: Wait for any common loading spinners to vanish
   await this.page
-    .locator(".loading, .spinner, #loading-image")
+    .locator(S.adminLogin.loadingSpinner.join(', '))
     .waitFor({ state: "hidden" })
     .catch(() => {});
 

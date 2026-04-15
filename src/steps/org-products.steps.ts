@@ -66,13 +66,13 @@ Then(
     const courses = [resolveCourse(courseArg1), resolveCourse(courseArg2)];
 
     const productsTable = this.page
-      .locator('table:has(th:has-text("PRODUCT CODE"))')
+      .locator(S.adminLogin.orgProducts.productsTable.join(', '))
       .first();
     await expect(productsTable).toBeVisible({ timeout: 15000 });
 
     const getEntriesInfoText = async (): Promise<string> => {
       const infoLoc = this.page
-        .locator(".dataTables_info, div.dataTables_info, [id$='_info']")
+        .locator(S.adminLogin.orgProducts.dataTablesInfo.join(', '))
         .first();
       const visible = await infoLoc
         .isVisible({ timeout: 2000 })
@@ -84,7 +84,7 @@ Then(
 
     const getProductsTableSnapshot = async (): Promise<string> => {
       const table = this.page
-        .locator('table:has(th:has-text("PRODUCT CODE"))')
+        .locator(S.adminLogin.orgProducts.productsTable.join(', '))
         .first();
       const visible = await table
         .isVisible({ timeout: 3000 })
@@ -148,7 +148,7 @@ Then(
       if (!addLinkClicked) throw new Error("Add Product link not found.");
 
       await this.page.waitForLoadState("domcontentloaded").catch(() => {});
-      await expect(this.page.locator("#submitBtn")).toBeVisible({
+      await expect(this.page.locator(S.adminLogin.orgProducts.submitAddProduct.join(', '))).toBeVisible({
         timeout: 15000,
       });
 
@@ -158,7 +158,7 @@ Then(
       );
       if (!opened) throw new Error("Product dropdown not found.");
 
-      await expect(this.page.locator("#autocompleteProduct")).toBeVisible({
+      await expect(this.page.locator(S.adminLogin.orgProducts.productSearchInput.join(', '))).toBeVisible({
         timeout: 15000,
       });
       await fillIfPresent(
@@ -199,7 +199,7 @@ Then(
 
       let flashText = "";
       const flashLocator = this.page.locator(
-        '.alert-success, .flash-success, div:has-text("added successfully")',
+        S.adminLogin.orgProducts.flashSuccess.join(', '),
       );
       const flashVisible = await flashLocator
         .first()
@@ -321,7 +321,7 @@ Then(
           );
           if (!ok) {
             const anyCsvLink = this.page.locator(
-              'a:has-text("download"):has-text("CSV"), a:has-text("download"):has-text("template"), a[href*="download"], a[href*=".csv"]',
+              S.adminLogin.manageStudents.csvDownloadFallback.join(', '),
             );
             if ((await anyCsvLink.count().catch(() => 0)) > 0) {
               await anyCsvLink
@@ -431,7 +431,7 @@ Then(
       .catch(() => true);
 
     if (isHidden)
-      fileInput = this.page.locator('input#upload[type="file"]').first();
+      fileInput = this.page.locator(S.adminLogin.manageStudents.hiddenFileInput.join(', ')).first();
     await fileInput.setInputFiles(generatedPath);
 
     // ==========================================
@@ -453,7 +453,7 @@ Then(
     if (!uploadLoc) {
       const inputUpload = this.page
         .locator(
-          'input[type="submit"][value="Upload"], input[type="button"][value="Upload"], input[value="Upload"]',
+          S.adminLogin.manageStudents.inputUploadBtn.join(', '),
         )
         .first();
       if ((await inputUpload.count().catch(() => 0)) > 0)
@@ -462,7 +462,7 @@ Then(
 
     if (!uploadLoc) {
       const anyUpload = this.page
-        .locator('button:has-text("Upload"), a:has-text("Upload")')
+        .locator(S.adminLogin.manageStudents.anyUploadBtn.join(', '))
         .first();
       if ((await anyUpload.count().catch(() => 0)) > 0) uploadLoc = anyUpload;
     }
@@ -496,7 +496,7 @@ Then(
     // ✅ Success Modal Handling (Fixed Locator)
     // ==========================================
     const successMsg = this.page
-      .locator("text=/your import request was processed successfully/i")
+      .locator(S.adminLogin.manageStudents.importSuccessMsg.join(', '))
       .first();
 
     // Wait for the background processing to finish
@@ -522,12 +522,11 @@ Then(
     // Close the Success Modal so it doesn't block the Search button
     let statusCloseBtn = statusModal
       .locator(
-        'button:has-text("Close"), input[value="Close"], a:has-text("Close")',
+        S.adminLogin.manageStudents.modalCloseBtn.join(', '),
       )
       .first();
     if (!(await statusCloseBtn.isVisible().catch(() => false))) {
-      // Fallback to the 'X' button
-      statusCloseBtn = statusModal.locator("button.close").first();
+      statusCloseBtn = statusModal.locator(S.adminLogin.manageStudents.modalCloseBtnX.join(', ')).first();
     }
 
     if (await statusCloseBtn.isVisible().catch(() => false)) {
@@ -617,7 +616,7 @@ Then(
 
     // Validation: Did the empty state disappear?
     const emptyStateText = this.page.locator(
-      'text="Please search and/or select filters to view the record."',
+      S.adminLogin.manageStudents.emptyStateText.join(', '),
     );
     if (await emptyStateText.isVisible().catch(() => false)) {
       // Retry click if it didn't register
@@ -627,12 +626,12 @@ Then(
 
     // Locate the Results Table directly by its ID to prevent hidden match errors
     const resultsTable = this.page
-      .locator("table#learnerTableList, table.dataTable")
+      .locator(S.adminLogin.manageStudents.resultsTable.join(', '))
       .first();
 
     // Check if the table is hidden because of a "No records found" state
     const noRecords = this.page
-      .locator('text="No data available in table", text="No records found"')
+      .locator(S.adminLogin.manageStudents.noRecordsText.join(', '))
       .first();
     if (await noRecords.isVisible().catch(() => false)) {
       throw new Error(
@@ -662,12 +661,8 @@ Then(
 
     const clickNextIfEnabled = async (): Promise<boolean> => {
       const nextBtn = this.page
-        .locator(
-          'div.dataTables_paginate, .dataTables_paginate, nav[aria-label*="pagination"]',
-        )
-        .locator(
-          'a:has-text("Next"), button:has-text("Next"), li:has-text("Next") a',
-        )
+        .locator(S.adminLogin.manageStudents.paginationContainer.join(', '))
+        .locator(S.adminLogin.manageStudents.paginationNextBtn.join(', '))
         .first();
       if ((await nextBtn.count().catch(() => 0)) === 0) return false;
 
@@ -691,8 +686,8 @@ Then(
     };
 
     const page1 = this.page
-      .locator("div.dataTables_paginate, .dataTables_paginate")
-      .locator('a:has-text("1"), button:has-text("1")')
+      .locator(S.adminLogin.manageStudents.paginationContainer.join(', '))
+      .locator(S.adminLogin.manageStudents.paginationPage1Btn.join(', '))
       .first();
     if ((await page1.count().catch(() => 0)) > 0) {
       await page1.click().catch(() => {});

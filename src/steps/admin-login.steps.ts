@@ -44,7 +44,7 @@ Then(
   "Admin should be logged in successfully",
   async function (this: ICustomWorld) {
     const loginFieldsStillVisible = await this.page
-      .locator('input[type="password"]')
+      .locator(S.adminLogin.passwordFieldCheck.join(', '))
       .count()
       .catch(() => 0);
 
@@ -148,10 +148,7 @@ Then(
   "Navigate to Organization details page",
   async function (this: ICustomWorld) {
     
-    const kababSelector = 'a.action_dropdown[data-bs-toggle="dropdown"]';
-
-    
-    const kababLocator = this.page.locator(kababSelector).first();
+    const kababLocator = this.page.locator(S.adminLogin.orgListingActions.orgActions[0]).first();
     await kababLocator.waitFor({ state: "attached", timeout: 20000 });
     await kababLocator.waitFor({ state: "visible", timeout: 10000 });
 

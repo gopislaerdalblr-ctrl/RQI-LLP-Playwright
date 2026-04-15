@@ -12,7 +12,7 @@ import { acquireLock, releaseLock } from "../utils/mutex";
 
 
 Then('Navigate to Assignments page', async function (this: ICustomWorld) {
-  const hamburgerMenu = this.page.locator('button.navbar-toggler, .navbar-toggle, [aria-label="Toggle navigation"], .mobile-menu-btn, .header-menu-icon, .navbar-header button').first();
+  const hamburgerMenu = this.page.locator(S.studentLogin.hamburgerMenu.join(', ')).first();
 
   if (await hamburgerMenu.isVisible({ timeout: 3000 }).catch(() => false)) {
     await hamburgerMenu.click({ force: true });
@@ -116,7 +116,7 @@ Then(
     await fillIfPresent(this, S.adminLogin.AssignmentTitleInput, uniqueTitle);
     await this.page.waitForTimeout(500);
 
-    const dueDateRadioLabel = this.page.locator('label').filter({ hasText: 'Specific Date' }).nth(1);
+    const dueDateRadioLabel = this.page.locator(S.adminLogin.specificDateLabel.join(', ')).filter({ hasText: 'Specific Date' }).nth(1);
     await dueDateRadioLabel.waitFor({ state: "visible", timeout: 5000 }).catch(() => { });
     await dueDateRadioLabel.click({ force: true });
     await this.page.waitForTimeout(1000);
@@ -190,7 +190,7 @@ Then(
       await searchResult.click({ force: true }).catch(() => { });
       await this.page.waitForTimeout(1000);
 
-      await this.page.locator('button:has-text("Add")').last().click({ force: true }).catch(() => { });
+      await this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last().click({ force: true }).catch(() => { });
       await this.page.waitForTimeout(2000);
 
       console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
@@ -204,7 +204,7 @@ Then(
       console.log(`[DEBUG] Waiting for success banner...`);
 
 
-      const successBanner = this.page.locator('text="Assignment was created successfully."').first();
+      const successBanner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', ')).first();
 
 
       await successBanner.waitFor({ state: "visible", timeout: 15000 }).catch(() => {
@@ -239,7 +239,7 @@ Then(
 
     const flashText = await tryGetFlashText(this.page);
     if (!flashText.toLowerCase().includes("successfully")) {
-      const banner = this.page.locator('text="Assignment was created successfully."');
+      const banner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', '));
       await expect(banner).toBeVisible({ timeout: 15000 }).catch(() => { });
     }
     await this.attach(`Success message verified.`, "text/plain");
@@ -247,14 +247,7 @@ Then(
     await fillIfPresent(this, S.adminLogin.SearchaAsignmentTitleInput, this.assignmentTitle);
     await this.page.waitForTimeout(1000);
 
-    const omniSearchBtn = this.page.locator([
-      'button:has-text("Search")',
-      'input[type="submit"][value="Search"]',
-      'input[type="button"][value="Search"]',
-      '[aria-label="Search"]',
-      '.btn-search',
-      '#search-btn'
-    ].join(', ')).first();
+    const omniSearchBtn = this.page.locator(S.adminLogin.assignmentSearchOmniBtn.join(', ')).first();
 
     try {
       await omniSearchBtn.waitFor({ state: "attached", timeout: 10000 });
@@ -268,7 +261,7 @@ Then(
     await this.page.waitForLoadState("networkidle").catch(() => { });
     await this.page.waitForTimeout(2000);
 
-    const assignmentRow = this.page.locator(`table.dataTable tbody tr`, { hasText: this.assignmentTitle }).first();
+    const assignmentRow = this.page.locator(S.adminLogin.assignmentResultRow.join(', '), { hasText: this.assignmentTitle }).first();
     await expect(assignmentRow).toBeVisible({ timeout: 10000 });
 
     const tdCount = await assignmentRow.locator('td').count();
@@ -481,7 +474,7 @@ Then(
     await this.page.waitForTimeout(5000);
 
 
-    const courseCards = this.page.locator('.card, [class*="course"], .list-group-item');
+    const courseCards = this.page.locator(S.studentDashboard.courseCards.join(', '));
     const myCourseCard = courseCards.filter({ hasText: courseName }).first();
 
     await expect(myCourseCard, `Could not find a course card containing the text: ${courseName}`).toBeVisible({ timeout: 15000 });
@@ -582,7 +575,7 @@ Then(
     // 1.5 CLICK ACTIVATE & LAUNCH 
     // ==========================================
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
-    const activateBtn = this.page.locator('button:has-text("ACTIVATE"), a:has-text("ACTIVATE")').first();
+    const activateBtn = this.page.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     if (await activateBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       console.log(`[DEBUG] ACTIVATE button found! Clicking it now...`);
@@ -591,7 +584,7 @@ Then(
     }
 
     console.log(`[DEBUG] Checking for LAUNCH button...`);
-    const launchBtn = this.page.locator('button:has-text("LAUNCH"), a:has-text("LAUNCH"), button:has-text("Launch")').first();
+    const launchBtn = this.page.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
 
     if (await launchBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       console.log(`[DEBUG] LAUNCH button found! Clicking it now...`);
@@ -634,7 +627,7 @@ Then(
       await dateInputLocator.blur().catch(() => { });
 
       // Click a safe background spot just in case the popup is still physically blocking the screen
-      await this.page.locator('h1, body').first().click({ force: true, position: { x: 5, y: 5 } }).catch(() => { });
+      await this.page.locator(S.courseLaunch.safeClickTarget.join(', ')).first().click({ force: true, position: { x: 5, y: 5 } }).catch(() => { });
       await this.page.waitForTimeout(500);
 
       // Failsafe check
@@ -657,7 +650,7 @@ Then(
     // ==========================================
     console.log(`[DEBUG] Scanning page for Inline Date Picker or Curriculum Table...`);
 
-    const inlineSubmitBtn = this.page.locator('button:has-text("SUBMIT"), input[value="SUBMIT" i]').first();
+    const inlineSubmitBtn = this.page.locator(S.studentDashboard.inlineSubmitBtn.join(', ')).first();
     const tableStartBtn = this.page.locator(S.studentDashboard.tableStartBtn.join(', ')).first();
 
     const isInlineDateVisible = await Promise.race([
@@ -668,7 +661,7 @@ Then(
     if (isInlineDateVisible) {
       console.log(`[DEBUG] Inline Date form is blocking the curriculum. Processing date...`);
 
-      const inlineDateInput = this.page.locator('input[name="test_today_date"], input[name="testDate"], input[type="date"], input[placeholder*="YYYY"]').first();
+      const inlineDateInput = this.page.locator(S.studentDashboard.inlineDateInput.join(', ')).first();
 
       await fillDateSafely(inlineDateInput);
 

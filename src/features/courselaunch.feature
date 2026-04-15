@@ -49,4 +49,4 @@ Feature: Course launch and completion for CTC user.
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
     Then I activate and launch the assigned course
-    Then I launch and complete the assigned course for "qtr -1"
+    Then I launch and complete the assigned course for "qtr 0"

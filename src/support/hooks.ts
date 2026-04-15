@@ -1,4 +1,5 @@
 import {
+  BeforeAll,
   Before,
   After,
   BeforeStep,
@@ -26,8 +27,6 @@ import {
 import { World } from "./world";
 import { pageFixture } from "./pageFixture";
 
-// --- Constants & Type Definitions ---
-
 const FIXED_VIEWPORT = { width: 1920, height: 1080 };
 const ALLOWED_BROWSER_TYPES = new Set(["chromium", "firefox", "webkit"]);
 
@@ -53,7 +52,6 @@ type NetEntry = {
   timingMs?: number;
 };
 
-// ✅ FIX: Removed 'heal' and 'sourceId' to inherit perfectly from your strict World file
 export interface ICustomWorld extends World {
   pickle?: any;
   lastStepText?: string;
@@ -69,31 +67,41 @@ export interface ICustomWorld extends World {
   importedUserLastName?: string;
   assignedCourseName?: string;
   extractedResetUrl?: string;
+  coursePlayerPage?: Page;
 }
 
 setDefaultTimeout(120_000);
 
-// --- Helper Functions ---
+function clearStaleLocks() {
+  const lockDir = path.resolve(process.cwd(), ".locks");
+  if (fs.existsSync(lockDir)) {
+    fs.rmSync(lockDir, { recursive: true, force: true });
+    console.log('\n[SETUP] Cleared stale mutex lock files from previous runs.');
+  }
+}
 
-// ✅ ADDED: Zimbra Universal Helpers
+BeforeAll(() => {
+  clearStaleLocks();
+});
+
 export function getZimbraCredentials() {
   const secretPath = path.resolve("src", "data", "secrets", "zimbra.json");
   if (!fs.existsSync(secretPath)) {
     throw new Error(`[FATAL] Zimbra credentials file not found at: ${secretPath}`);
   }
   let fileContent = fs.readFileSync(secretPath, "utf-8");
-  
-  fileContent = fileContent.replace(/^\uFEFF/, "").trim(); 
+
+  fileContent = fileContent.replace(/^\uFEFF/, "").trim();
   return JSON.parse(fileContent);
 }
 
 export function getZimbraUrl() {
-  const instancePath = path.resolve("src","config","instances.json"); 
+  const instancePath = path.resolve("src", "config", "instances.json");
   if (!fs.existsSync(instancePath)) {
     throw new Error(`[FATAL] instance.json file not found at: ${instancePath}`);
   }
   let fileContent = fs.readFileSync(instancePath, "utf-8");
-  fileContent = fileContent.replace(/^\uFEFF/, "").trim(); 
+  fileContent = fileContent.replace(/^\uFEFF/, "").trim();
   const config = JSON.parse(fileContent);
   return config.zimbra.baseUrl;
 }
@@ -113,7 +121,7 @@ function safeWriteRunMeta(meta: any) {
   } catch {
     try {
       if (fs.existsSync(tempFile)) fs.rmSync(tempFile, { force: true });
-    } catch {}
+    } catch { }
   }
 }
 
@@ -158,7 +166,6 @@ function getViewportOptionsForBrowser(browserType: string) {
     : { viewport: FIXED_VIEWPORT };
 }
 
-// Extracted UI Error Logic for cleaner hooks
 async function captureUIErrors(page: Page): Promise<string[]> {
   try {
     const detectedErrors = await page.evaluate(() => {
@@ -178,7 +185,7 @@ async function captureUIErrors(page: Page): Promise<string[]> {
             errors.push(`UI Alert: ${txt}`);
         });
       const bodyText = document.body.innerText || "";
-  
+
       if (bodyText.includes("502 Bad Gateway"))
         errors.push("Page contains: 502 Bad Gateway");
       if (bodyText.includes("404 Not Found"))
@@ -190,8 +197,6 @@ async function captureUIErrors(page: Page): Promise<string[]> {
     return [];
   }
 }
-
-// --- Hooks ---
 
 BeforeStep(function (this: ICustomWorld, { pickleStep }) {
   this.lastStepText = pickleStep?.text || "";
@@ -232,7 +237,6 @@ Before(async function (this: ICustomWorld, scenario) {
   const instanceKey = getInstanceKey();
   const cfg = loadInstance(instanceKey);
 
-  // Asynchronous File Read for Moodle config with (cfg as any) bypass
   try {
     const instancesPath = path.resolve("src/config/instances.json");
     if (fs.existsSync(instancesPath)) {
@@ -300,7 +304,7 @@ Before(async function (this: ICustomWorld, scenario) {
     const cleanText =
       text.length > limit
         ? text.substring(0, limit) +
-          ` ... [TRUNCATED (${text.length - limit} chars)]`
+        ` ... [TRUNCATED (${text.length - limit} chars)]`
         : text;
     this.consoleLogs!.push(`[console] ${msg.type()} ${cleanText}`);
   });
@@ -382,7 +386,6 @@ After(async function (this: ICustomWorld, scenario) {
       const fullPath = path.join(tmpShotsDir, fileName);
       await this.page.screenshot({ path: fullPath, fullPage: true });
 
-      // Asynchronous File Read
       const buf = await fs.promises.readFile(fullPath);
       await this.attach(buf, "image/png");
       await this.attach(`URL: ${this.page.url()}`, "text/plain");
@@ -422,7 +425,7 @@ After(async function (this: ICustomWorld, scenario) {
           if (histMatch && histMatch[1]) activeOrgId = histMatch[1];
         }
       }
-    } catch {}
+    } catch { }
   }
 
   const foundCourses = new Set<string>();
@@ -442,12 +445,12 @@ After(async function (this: ICustomWorld, scenario) {
         });
       }
     });
-  } catch {}
+  } catch { }
 
   const coursesList = foundCourses.size
     ? Array.from(foundCourses)
-        .map((c) => `• ${c}`)
-        .join("\n" + " ".repeat(18))
+      .map((c) => `• ${c}`)
+      .join("\n" + " ".repeat(18))
     : "• (No mapped courses found)";
   const instanceKey = getInstanceKey();
 
@@ -480,7 +483,7 @@ Timestamp: ${new Date().toISOString()}
   ensureDir(tmpLogsDir);
   const safeScenario = safeFilePart(scenarioName);
   const baseFile = `${runName}__${safeScenario}`;
-  
+
   const consoleFileTmp = path.join(tmpLogsDir, `${baseFile}__console.log`);
   const pageErrFileTmp = path.join(tmpLogsDir, `${baseFile}__pageerrors.log`);
   const netFileTmp = path.join(tmpLogsDir, `${baseFile}__network.log`);
@@ -523,10 +526,10 @@ Timestamp: ${new Date().toISOString()}
   writeTextFile(netFileTmp, netText);
   writeTextFile(netJsonFileTmp, JSON.stringify(netLogs, null, 2));
 
-  await this.moodlePage?.close().catch(() => {});
-  await this.page?.close().catch(() => {});
-  await this.context?.close().catch(() => {});
-  await this.browser?.close().catch(() => {});
+  await this.moodlePage?.close().catch(() => { });
+  await this.page?.close().catch(() => { });
+  await this.context?.close().catch(() => { });
+  await this.browser?.close().catch(() => { });
 
   if (video && videoPathPromise) {
     try {
@@ -545,7 +548,6 @@ Timestamp: ${new Date().toISOString()}
           fs.unlinkSync(originalPath);
         }
 
-        // Asynchronous File Read
         const videoBuf = await fs.promises.readFile(newPath);
         await this.attach(videoBuf, "video/webm");
         await this.attach(`🎥 Video: ${newFileName}`, "text/plain");

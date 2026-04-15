@@ -17,7 +17,7 @@ Then(
     
     // Safety Net: If the primary selector for '...' fails, look for it structurally
     if (!menuClicked) {
-      const dotsBtn = this.page.locator('text="..."').first();
+      const dotsBtn = this.page.locator(S.adminLogin.mergeUsers.dotsMenuFallback[0]).first();
       if (await dotsBtn.isVisible().catch(() => false)) {
         await dotsBtn.scrollIntoViewIfNeeded().catch(() => {});
         await dotsBtn.click({ force: true }).catch(() => {});
@@ -30,7 +30,7 @@ Then(
     }
 
     // 3. Wait for the Dropdown to physically render
-    const dropdownProof = this.page.locator('text=/Organi[sz]ation Details/i').first();
+    const dropdownProof = this.page.locator(S.adminLogin.mergeUsers.orgDetailsDropdownProof[0]).first();
     await expect(dropdownProof).toBeVisible({ timeout: 15000 }).catch(() => {});
 
     // 4. Click 'Access Organisation' (Handling 's' or 'z' spelling dynamically)
@@ -38,7 +38,7 @@ Then(
 
     // Safety Net: Look for the text using Regex to bypass strict spelling
     if (!accessClicked) {
-      const accessLinkRegex = this.page.locator('text=/Access Organi[sz]ation/i').first();
+      const accessLinkRegex = this.page.locator(S.adminLogin.mergeUsers.accessOrganizationRegex[0]).first();
       
       if (await accessLinkRegex.isVisible().catch(() => false)) {
         await accessLinkRegex.click({ force: true }).catch(() => {});

@@ -27,7 +27,33 @@ async function safeAttach(world: ICustomWorld, text: string) {
     if (world && typeof world.attach === "function") {
       await world.attach(text, "text/plain");
     }
-  } catch {}
+  } catch { }
+}
+
+// ==========================================
+// HELPER: DEVTOOLS CONSOLE INJECTION
+// ==========================================
+export async function injectConsoleDate(page: any, targetDate: string) {
+  console.log(`\n[HELPER] Executing DevTools console injection for date: ${targetDate}`);
+
+  try {
+    // Method 1: The physical script tag (Mimics typing and pressing Enter)
+    await page.addScriptTag({
+      content: `var testActivateDate = '${targetDate}';`
+    });
+
+    // Method 2: Direct window object assignment (Failsafe)
+    await page.evaluate((d: string) => {
+      (window as any).testActivateDate = d;
+    }, targetDate);
+
+    // Give the browser's JavaScript engine a brief moment to register the global variable
+    await page.waitForTimeout(1000);
+    console.log(`[HELPER] Console injection complete.`);
+
+  } catch (error) {
+    console.error(`[HELPER ERROR] Failed to inject console date: ${error}`);
+  }
 }
 
 export type ClickIfPresentOptions = {
@@ -65,7 +91,7 @@ export async function clickIfPresent(
           );
         }
 
-        await el.scrollIntoViewIfNeeded().catch(() => {});
+        await el.scrollIntoViewIfNeeded().catch(() => { });
         await el.click({ timeout: 5000 });
         return true;
       } catch (err: unknown) {
@@ -89,7 +115,7 @@ export async function clickIfPresent(
         `Healwright: Recovered click on "${primarySel}"`,
       );
       return true;
-    } catch (healErr) {}
+    } catch (healErr) { }
   }
 
   if (strictClick) {
@@ -133,7 +159,7 @@ export async function fillIfPresent(
       await page.heal.locator(primarySel).fill(value, { timeout: timeoutMs });
       world.heal.used = true;
       return true;
-    } catch {}
+    } catch { }
   }
 
   if (strict)
@@ -193,13 +219,13 @@ export async function executeHardLogout(world: ICustomWorld): Promise<void> {
 export function ensureDir(dirPath: string) {
   try {
     fs.mkdirSync(dirPath, { recursive: true });
-  } catch {}
+  } catch { }
 }
 
 export function deleteIfExists(p: string) {
   try {
     if (fs.existsSync(p)) fs.rmSync(p, { force: true });
-  } catch {}
+  } catch { }
 }
 
 export function nowSuffix(maxLen = 20) {

@@ -42,10 +42,10 @@ export const S = {
         'input[name="org_id"]',
       ],
       OrganizationsLink: [
-          'a[href*="/admin/organizations"]',
-          'a:has-text("Organizations")',
-          'a.active:has-text("Organizations")',
-          'a[href$="/organizations"]',
+        'a[href*="/admin/organizations"]',
+        'a:has-text("Organizations")',
+        'a.active:has-text("Organizations")',
+        'a[href$="/organizations"]',
       ],
 
       searchButton: [
@@ -103,41 +103,85 @@ export const S = {
       ],
       submitAddProduct: ["#submitBtn"],
       courseVisibleText: (text: string) => `text=${text}`,
+      productsTable: ['table:has(th:has-text("PRODUCT CODE"))'],
+      dataTablesInfo: [
+        '.dataTables_info',
+        'div.dataTables_info',
+        "[id$='_info']",
+      ],
+      flashSuccess: [
+        '.alert-success',
+        '.flash-success',
+        'div:has-text("added successfully")',
+      ],
     },
     manageStudents: {
-      // ✅ Navigation
       manageStudentsNav: ['a:has-text("Manage Students")'],
-
-      // ✅ Import Demographic Data button (top right)
       importDemographicBtn: [
         'button:has-text("Import Demographic Data")',
         'a:has-text("Import Demographic Data")',
       ],
-
-      // ✅ Download CSV template link inside modal
       downloadTemplateLink: [
         'a:has-text("download a formatted blank CSV file")',
         'a[href*="download"]',
       ],
-
-      // ✅ File input (Choose File)
       chooseFileInput: ['input[type="file"]'],
-
-      // ✅ Upload button inside modal
       uploadBtn: ['button:has-text("Upload")', 'input[value="Upload"]'],
-
-      // ✅ Search input (User ID / First Name / filters)
       searchUserInput: [
         'input[placeholder*="User"]',
         'input[name*="user"]',
         'input[id*="user"]',
       ],
-
-      // ✅ Search icon / button
       searchBtn: [
         "button:has(i.fa-search)",
         "a:has(i.fa-search)",
         'button:has-text("Search")',
+      ],
+      csvDownloadFallback: [
+        'a:has-text("download"):has-text("CSV")',
+        'a:has-text("download"):has-text("template")',
+        'a[href*="download"]',
+        'a[href*=".csv"]',
+      ],
+      hiddenFileInput: ['input#upload[type="file"]'],
+      inputUploadBtn: [
+        'input[type="submit"][value="Upload"]',
+        'input[type="button"][value="Upload"]',
+        'input[value="Upload"]',
+      ],
+      anyUploadBtn: [
+        'button:has-text("Upload")',
+        'a:has-text("Upload")',
+      ],
+      importSuccessMsg: ['text=/your import request was processed successfully/i'],
+      modalCloseBtn: [
+        'button:has-text("Close")',
+        'input[value="Close"]',
+        'a:has-text("Close")',
+      ],
+      modalCloseBtnX: ['button.close'],
+      emptyStateText: ['text="Please search and/or select filters to view the record."'],
+      resultsTable: [
+        'table#learnerTableList',
+        'table.dataTable',
+      ],
+      noRecordsText: [
+        'text="No data available in table"',
+        'text="No records found"',
+      ],
+      paginationContainer: [
+        'div.dataTables_paginate',
+        '.dataTables_paginate',
+        'nav[aria-label*="pagination"]',
+      ],
+      paginationNextBtn: [
+        'a:has-text("Next")',
+        'button:has-text("Next")',
+        'li:has-text("Next") a',
+      ],
+      paginationPage1Btn: [
+        'a:has-text("1")',
+        'button:has-text("1")',
       ],
     },
 
@@ -209,7 +253,7 @@ export const S = {
       'button[data-target="#learnersDialog"]',
     ],
     AssignmentSearchUser: [
-      'input[placeholder*="Search"]', 
+      'input[placeholder*="Search"]',
       '#searchUser'
     ],
     SearchaAsignmentTitleInput: [
@@ -231,7 +275,7 @@ export const S = {
       'input.datePicker#assignment_specific_due_date',
     ],
     CalendarActiveDays: [
-      'td.day:not(.old):not(.new)', 
+      'td.day:not(.old):not(.new)',
       'td:not(.ui-state-disabled):not(.disabled)'
     ],
     NoRecurrenceRadioLabel: [
@@ -287,10 +331,10 @@ export const S = {
       'a:has-text("Logout")',
     ],
     GlobalUserManagementWidget: [
-      "button#usermanage-tooltip", 
-      'button.admin-nav-icon:has-text("User Mgmt")', 
-      'button[data-toggle="tooltip"]:has(em.fa-user)', 
-      '//button[@id="usermanage-tooltip"]', 
+      "button#usermanage-tooltip",
+      'button.admin-nav-icon:has-text("User Mgmt")',
+      'button[data-toggle="tooltip"]:has(em.fa-user)',
+      '//button[@id="usermanage-tooltip"]',
     ],
     GlobalUserManagement: [
       'a:has-text("User Management")',
@@ -320,6 +364,29 @@ export const S = {
       'a[href*="/admin/newrole/"]',
       'a[href^="/admin/newrole/ZFhObGN"]',
     ],
+    passwordFieldCheck: ['input[type="password"]'],
+    loadingSpinner: [
+      '.loading',
+      '.spinner',
+      '#loading-image',
+    ],
+    specificDateLabel: ['label'],
+    addLearnerConfirmBtn: ['button:has-text("Add")'],
+    assignmentSuccessBanner: ['text="Assignment was created successfully."'],
+    assignmentSearchOmniBtn: [
+      'button:has-text("Search")',
+      'input[type="submit"][value="Search"]',
+      'input[type="button"][value="Search"]',
+      '[aria-label="Search"]',
+      '.btn-search',
+      '#search-btn',
+    ],
+    assignmentResultRow: ['table.dataTable tbody tr'],
+    mergeUsers: {
+      dotsMenuFallback: ['text="..."'] as (string | RegExp)[],
+      orgDetailsDropdownProof: [/Organi[sz]ation Details/i] as (string | RegExp)[],
+      accessOrganizationRegex: [/Access Organi[sz]ation/i] as (string | RegExp)[],
+    },
   },
 
   moodle: {
@@ -360,17 +427,17 @@ export const S = {
   // ✅ UPDATED: Password Reset Screen Selectors
   resetPassword: {
     newPasswordInput: [
-      'input[name="newPassword"]', 
+      'input[name="newPassword"]',
       'input[placeholder*="New Password"]',
-      "xpath=(//input[@type='password'])[1]" 
+      "xpath=(//input[@type='password'])[1]"
     ],
     confirmPasswordInput: [
-      'input[name="confirmPassword"]', 
+      'input[name="confirmPassword"]',
       'input[placeholder*="Confirm"]',
-      "xpath=(//input[@type='password'])[2]" 
+      "xpath=(//input[@type='password'])[2]"
     ],
     submitBtn: [
-      'button:has-text("Create Password")', 
+      'button:has-text("Create Password")',
       'input[value="Create Password"]',
       'a:has-text("Create Password")'
     ],
@@ -378,7 +445,7 @@ export const S = {
       'button:has-text("Next")',
       'a:has-text("Next")',
       'input[value="Next"]',
-      'a:has-text("return to login page")', 
+      'a:has-text("return to login page")',
       'a:has-text("Return to Login")'
     ]
   },
@@ -386,26 +453,110 @@ export const S = {
   // ✅ Main RQI Student Login Screen Selectors
   studentLogin: {
     loginBtnHomepage: [
-      'a[aria-label="Login"]:visible', 
-      'a[href*="/sap/login"]:visible', 
-      'a.sf-button:has-text("Login"):visible'
-    ], 
+      'a[aria-label="Login"]:visible',
+      'a[href*="/sap/login"]:visible',
+      'a.sf-button:has-text("Login"):visible',
+      'a[aria-label="Login"]',
+      'a[href*="/sap/login"]',
+      'a.sf-button:has-text("Login")',
+      'a:has-text("Sign In")'
+    ],
     emailInput: [
-      'input[placeholder*="Username or email"]:visible', 
-      'input[name="username"]:visible', 
+      'input[placeholder*="Username or email"]:visible',
+      'input[name="username"]:visible',
       'input[data-gigya-name="loginID"]:visible',
       'input[type="text"]:visible'
     ],
     passwordInput: [
-      'input[name="password"]:visible', 
+      'input[name="password"]:visible',
       'input[placeholder*="Password"]:visible',
       'input[type="password"]:visible'
     ],
     submitLoginBtn: [
-      'button:has-text("Log In"):visible', 
+      'button:has-text("Log In"):visible',
       'button[type="submit"]:visible',
       'input[value="Log In"]:visible'
+    ],
+    hamburgerMenu: [
+      '#nav__hamburger',
+      '.c-top-nav__menu-trigger',
+      '[aria-label="Mobile Menu"]',
+      'button.navbar-toggler',
+      '.navbar-toggle',
+      '[aria-label="Toggle navigation"]',
+      '.mobile-menu-btn',
+      '.header-menu-icon',
+      '.navbar-header button'
+    ],
+  },
+  studentDashboard: {
+    courseCardByText: (courseName: string) =>
+      `div.card, div.course-card, div.list-item, div[class*="course"]:has-text("${courseName}")`,
+    courseStartBtn: (courseName: string) =>
+      `div:has-text("${courseName}") button:has-text("Start"), div:has-text("${courseName}") button:has-text("Launch")`,
+    launchBtn: ['button:has-text("Launch")', 'button:has-text("Start")', 'a:has-text("Launch")'],
+    courseRowByText: (courseName: string) =>
+      `.list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}"), div.card:has-text("${courseName}")`,
+    activateBtn: ['button:has-text("Activate")', 'a:has-text("Activate")'],
+    tableStartBtn: [
+      'table tr button:has-text("START")',
+      'table tr a:has-text("START")',
+      'tr:has-text("Online Activity") button:has-text("START")',
+      'tr:has-text("eLearning") button:has-text("START")',
+      '.table button:has-text("START")'
+    ],
+    startBtn: ['button:has-text("Start")', 'button:has-text("Launch")', 'a:has-text("Start")'],
+    datePickerModal: ['.modal:has-text("Date")', '[role="dialog"]:has-text("Date")', 'div.test-date-modal', 'div.modal-content:has-text("Date")'],
+    dateInput: ['input[type="date"]', 'input[placeholder*="MM"]', 'input[placeholder*="DD"]', 'input[name="testDate"]', 'input[placeholder*="MM/DD/YYYY"]'],
+    saveDateBtn: ['button:has-text("Save")', 'button:has-text("Continue")', 'button:has-text("Submit")'],
+    courseCards: [
+      '.card',
+      '[class*="course"]',
+      '.list-group-item',
+    ],
+    activateBtnUppercase: [
+      'button:has-text("ACTIVATE")',
+      'a:has-text("ACTIVATE")',
+    ],
+    launchBtnUppercase: [
+      'button:has-text("LAUNCH")',
+      'a:has-text("LAUNCH")',
+      'button:has-text("Launch")',
+    ],
+    inlineSubmitBtn: [
+      'button:has-text("SUBMIT")',
+      'input[value="SUBMIT" i]',
+    ],
+    inlineDateInput: [
+      'input[name="test_today_date"]',
+      'input[name="testDate"]',
+      'input[type="date"]',
+      'input[placeholder*="YYYY"]',
+    ],
+  },
+  courseLaunch: {
+    safeClickTarget: ['h1', 'body'],
+  },
+  coursePlayer: {
+    exitBtn: [
+      'button:has-text("Exit Exercise")',
+      'a:has-text("Exit Exercise")',
+      'button:has-text("Exit")',
+      '.exit-button'
     ]
+  },
+  postCompletion: {
+    cmeModal: ['.modal:has-text("CE/CME Credits")', '[role="dialog"]:has-text("CE/CME Credits")', 'div:has-text("eligible to claim CE/CME")'],
+    acknowledgeBtn: ['button:has-text("Acknowledge")'],
+
+    // NEW: eCard Email Modal Selectors
+    eCardModal: ['.modal:has-text("Email eCard")', '[role="dialog"]:has-text("Email eCard")'],
+    eCardCancelBtn: ['button:has-text("Cancel")'],
+
+    // Selectors for the Evaluation phase
+    evaluationBtn: ['a:has-text("EVALUATION")', 'button:has-text("EVALUATION")', 'div.step-item:has-text("Evaluation") button', 'a:has-text("Evaluation")'],
+    evalTextAreas: ['textarea', 'input[type="text"].eval-text'],
+    submitEvalBtn: ['button:has-text("Submit")', 'input[value="Submit"]', 'button:has-text("Save")']
   }
 
 } as const;

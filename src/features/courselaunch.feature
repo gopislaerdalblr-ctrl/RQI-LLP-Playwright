@@ -22,11 +22,11 @@ Feature: Course launch and completion for CTC user.
     Then I verify the assignment was created successfully with 1 learner added
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
-    Then I activate and launch the assigned course
-    Then the page should be accessible
+    #Then I activate and launch the assigned course
     Then I launch and complete the assigned course for "qtr 0"
+    Then the page should be accessible
 
-  @smoke @test @completion
+  @smoke @test @completion1
   Scenario: BLS TrueStart course launch and completion for CTC user
     Given Launch the application
     Then Login with admin credentials
@@ -48,5 +48,6 @@ Feature: Course launch and completion for CTC user.
     Then I verify the assignment was created successfully with 1 learner added
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
-    Then I activate and launch the assigned course
-    Then I launch and complete the assigned course for "qtr 0"
+    #Then I activate and launch the assigned course
+    Then I launch and complete the assigned course for "qtr -1"
+    Then the page should be accessible

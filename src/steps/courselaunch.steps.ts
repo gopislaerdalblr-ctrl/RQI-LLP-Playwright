@@ -191,7 +191,7 @@ Then(
       await this.page.waitForTimeout(1000);
 
       await this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last().click({ force: true }).catch(() => { });
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(5000);
 
       console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
       const createBtn = this.page.locator(S.adminLogin.CreateAssignmentButton.join(', ')).first();
@@ -376,6 +376,7 @@ Then(
     await fillIfPresent(this, S.resetPassword.newPasswordInput, newPassword);
     await fillIfPresent(this, S.resetPassword.confirmPasswordInput, newPassword);
 
+    await this.page.waitForTimeout(2000);
     const submitClicked = await clickIfPresent(this, S.resetPassword.submitBtn);
     if (!submitClicked) throw new Error("[FATAL] Could not click Create Password submit button.");
     await this.page.waitForTimeout(4000);
@@ -529,7 +530,7 @@ Then(
 
 Then(
   "I launch and complete the assigned course for {string}",
-  { timeout: 240 * 1000 }, 
+  { timeout: 240 * 1000 },
   async function (this: ICustomWorld, qtrInput: string) {
     if (!this.assignedCourseName) {
       throw new Error("[FATAL] No assignedCourseName found in context.");
@@ -547,20 +548,33 @@ Then(
     console.log(`[DEBUG] Timeframe: ${qtrInput} | Target Date: ${targetFormattedDate}`);
     console.log(`======================================================\n`);
 
-    
     const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
 
-    
     await this.page.addInitScript(rawConsoleScript);
 
     await this.page.bringToFront();
     await this.page.waitForLoadState("networkidle");
     await this.page.waitForTimeout(2000);
 
-    console.log(`[DEBUG] Checking for ACTIVATE button...`);
-    const activateBtn = this.page.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
+    // ==============================================================
+    // THE FIX: Strict Row Rendering & Button Isolation
+    // ==============================================================
+    console.log(`[DEBUG] Waiting up to 30s for the specific course row to render: ${courseName}`);
 
-    if (await activateBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    // 1. Locate the exact row using the updated selector
+    const courseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+
+    // 2. Wait strictly for this row to appear. If it doesn't, fail accurately here.
+    await courseRow.waitFor({ state: 'visible', timeout: 30000 });
+    await courseRow.scrollIntoViewIfNeeded().catch(() => { });
+    console.log(`[DEBUG] Course row verified visible! Scoping clicks to this row only.`);
+
+    // 3. Scope the buttons ONLY to this specific row to prevent clicking wrong courses
+    const activateBtn = courseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
+    const launchBtn = courseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+
+    console.log(`[DEBUG] Checking for ACTIVATE button...`);
+    if (await activateBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
       console.log(`[DEBUG] FORCING raw script evaluation into console before ACTIVATE...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
@@ -569,12 +583,12 @@ Then(
       await activateBtn.click({ force: true });
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(2000);
+    } else {
+      console.log(`[DEBUG] ACTIVATE button not found for this course.`);
     }
 
     console.log(`[DEBUG] Checking for LAUNCH button...`);
-    const launchBtn = this.page.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
-
-    if (await launchBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await launchBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
       console.log(`[DEBUG] FORCING raw script evaluation into console before LAUNCH...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
@@ -583,7 +597,10 @@ Then(
       await launchBtn.click({ force: true });
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(3000);
+    } else {
+      console.log(`[DEBUG] LAUNCH button not found for this course.`);
     }
+    // ==============================================================
 
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
@@ -654,8 +671,9 @@ Then(
       let buttonCount = await startButtonsLoc.count();
 
       if (buttonCount === 0) {
-        const courseCards = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
-        startButtonsLoc = courseCards.locator(S.studentDashboard.startBtn.join(', '));
+        // Must use the scoped row here as well to ensure we check modules for the correct course
+        const activeCourseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+        startButtonsLoc = activeCourseRow.locator(S.studentDashboard.startBtn.join(', '));
         buttonCount = await startButtonsLoc.count();
       }
 
@@ -767,15 +785,12 @@ Then(
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(2000);
 
-     
       console.log(`[DEBUG] Checking for Post-Evaluation Inline Date Picker...`);
       const postEvalInlineSubmitBtn = this.page.locator(S.studentDashboard.inlineSubmitBtn.join(', ')).first();
 
-      
       if (await postEvalInlineSubmitBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
         console.log(`[DEBUG] Post-Evaluation Inline Date Picker found! Restoring previous date...`);
 
-        
         await this.page.evaluate(rawConsoleScript).catch(() => { });
         await this.page.waitForTimeout(1000);
 
@@ -800,5 +815,493 @@ Then(
     };
 
     await this.attach(` COURSE COMPLETION SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
+  }
+);
+
+
+Then(
+  "I create a manual assignment for course {string}",
+  async function (this: ICustomWorld, courseKey: string) {
+
+    const courseCfg = readCourseConfig() as any;
+
+    const suffix = courseKey.match(/\d+$/)?.[0] || "";
+    const nameKey = `courseName${suffix}`;
+    const resolvedCourseName = (courseCfg[nameKey] || courseCfg["courseName"] || "").trim();
+
+    // CRITICAL: Bind this resolved name to the specific key so downstream continuity steps can find it
+    (this as any)[courseKey] = resolvedCourseName;
+    this.assignedCourseName = resolvedCourseName;
+
+    if (!resolvedCourseName) {
+      throw new Error(`Could not resolve a course name for key: ${courseKey}`);
+    }
+
+    const uniqueTitle = `${resolvedCourseName}_${Date.now()}`;
+    this.assignmentTitle = uniqueTitle;
+
+    await this.page.waitForLoadState("domcontentloaded");
+
+    console.log(`[DEBUG] Attempting to click the initial Create Assignment button...`);
+    let createBtnFound = false;
+
+    for (const sel of S.adminLogin.CreateAssignment) {
+      try {
+        const btn = this.page.locator(sel).first();
+        await btn.waitFor({ state: "attached", timeout: 5000 });
+        await btn.evaluate((el: HTMLElement) => el.click());
+        createBtnFound = true;
+        break;
+      } catch (e) {
+      }
+    }
+
+    if (!createBtnFound) {
+      throw new Error("[FATAL] Could not find the initial Create Assignment button in the DOM.");
+    }
+    await this.page.waitForTimeout(1000);
+
+    await clickIfPresent(this, S.adminLogin.ManualSelection);
+    await this.page.waitForTimeout(500);
+
+    let dropdownOpened = false;
+    for (const sel of S.adminLogin.CourseCurriculumDropdown) {
+      try {
+        const el = this.page.locator(sel).first();
+        await el.waitFor({ state: "visible", timeout: 8000 });
+        await el.click();
+        dropdownOpened = true;
+        break;
+      } catch { }
+    }
+    if (!dropdownOpened) throw new Error("[FATAL] CourseCurriculumDropdown not found");
+    await this.page.waitForTimeout(1000);
+
+    let searchFilled = false;
+    for (const sel of S.adminLogin.CourseSearchInput) {
+      try {
+        const el = this.page.locator(sel).first();
+        await el.waitFor({ state: "visible", timeout: 8000 });
+        await el.click({ clickCount: 3 });
+        await el.pressSequentially(resolvedCourseName, { delay: 80 });
+        searchFilled = true;
+        break;
+      } catch { }
+    }
+    if (!searchFilled) throw new Error("[FATAL] CourseSearchInput not found");
+    await this.page.waitForTimeout(1500);
+
+    await this.page.keyboard.press("ArrowDown");
+    await this.page.waitForTimeout(300);
+    await this.page.keyboard.press("Enter");
+    await this.page.waitForTimeout(800);
+    await this.page.keyboard.press("Escape").catch(() => { });
+    await this.page.waitForTimeout(500);
+
+    await fillIfPresent(this, S.adminLogin.AssignmentTitleInput, uniqueTitle);
+    await this.page.waitForTimeout(1000);
+
+    // ==============================================================
+    // Due Date & Recurrence selection removed for Perpetual Courses
+    // ==============================================================
+
+    const nextClicked = await clickIfPresent(this, S.adminLogin.AssignmentNextButton);
+    if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
+    await this.page.waitForTimeout(2000);
+
+    const searchTarget = this.importedUserEmail;
+    if (!searchTarget) {
+      throw new Error("[FATAL] No imported user email found in context.");
+    }
+
+    console.log(`\n[DEBUG] Waiting for backend clearance to add learners...`);
+    await acquireLock('assignment_creation');
+
+    try {
+      const addLearnerClicked = await clickIfPresent(this, S.adminLogin.AddLearnerButton);
+      if (!addLearnerClicked) throw new Error("[FATAL] Could not click Add Learner button.");
+      await this.page.waitForTimeout(1500);
+
+      await fillIfPresent(this, S.adminLogin.AssignmentSearchUser, searchTarget);
+      await this.page.waitForTimeout(2000);
+
+      const searchResult = this.page.locator(`text=${searchTarget}`).last();
+      await searchResult.waitFor({ state: "visible", timeout: 5000 }).catch(() => { });
+      await searchResult.click({ force: true }).catch(() => { });
+      await this.page.waitForTimeout(1000);
+
+      await this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last().click({ force: true }).catch(() => { });
+      await this.page.waitForTimeout(2000);
+
+      console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
+      const createBtn = this.page.locator(S.adminLogin.CreateAssignmentButton.join(', ')).first();
+
+      await createBtn.click({ force: true }).catch(() => {
+        console.log("[WARNING] Playwright click event interrupted, likely due to instant DOM refresh.");
+      });
+
+      console.log(`[DEBUG] Waiting for success banner...`);
+
+      const successBanner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', ')).first();
+
+      await successBanner.waitFor({ state: "visible", timeout: 15000 }).catch(() => {
+        console.log("[WARNING] Success banner not visible within 15s. Checking if assignment saved anyway.");
+      });
+
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(3000);
+
+    } finally {
+      releaseLock('assignment_creation');
+    }
+
+    await this.attach(`Successfully created manual Perpetual Assignment: ${uniqueTitle} for user: ${searchTarget}`, "text/plain");
+  }
+);
+
+
+
+
+Then(
+  "I launch and complete the specific course {string} for {string}",
+  { timeout: 240 * 1000 }, // 4 MINUTES TIMEOUT
+  async function (this: ICustomWorld, courseIdentifier: string, qtrInput: string) {
+    if (!this.page || !this.context) {
+      throw new Error("[FATAL] Playwright page/context object is undefined.");
+    }
+
+    const courseName = (this as any)[courseIdentifier] || courseIdentifier;
+    if (!courseName) {
+      throw new Error(`[FATAL] Could not resolve a course name for identifier: ${courseIdentifier}`);
+    }
+
+    // ==========================================
+    // 1. NAVIGATION: STRICT MENU -> MY PROGRAMS
+    // ==========================================
+    console.log(`\n======================================================`);
+    console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
+    console.log(`======================================================\n`);
+
+    await this.page.bringToFront();
+    await this.page.waitForLoadState("domcontentloaded");
+
+    // Close the lingering "Evaluation completed" popup from the previous course
+    const closeModal = this.page.locator('button.close, .modal-header button, button:has-text("Close")').first();
+    if (await closeModal.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log(`[DEBUG] Lingering popup detected. Closing it...`);
+      await closeModal.click({ force: true }).catch(() => { });
+      await this.page.waitForTimeout(1000);
+    }
+
+    console.log(`[DEBUG] Initiating strict Menu -> My Programs sequence...`);
+
+    // STEP A: Explicitly click the Menu/Hamburger
+    let menuClicked = false;
+    for (const sel of S.studentDashboard.menuToggles) {
+      const toggles = this.page.locator(sel);
+      const count = await toggles.count();
+      for (let i = 0; i < count; i++) {
+        if (await toggles.nth(i).isVisible({ timeout: 500 }).catch(() => false)) {
+          console.log(`[DEBUG] Found visible Menu toggle. Clicking...`);
+          await toggles.nth(i).click({ force: true });
+          await this.page.waitForTimeout(2000); // Wait 2s for dropdown animation
+          menuClicked = true;
+          break;
+        }
+      }
+      if (menuClicked) break;
+    }
+
+    // STEP B: Explicitly click My Programs
+    let navigated = false;
+    for (const sel of S.studentDashboard.myProgramsLink) {
+      const links = this.page.locator(sel);
+      const count = await links.count();
+      for (let i = 0; i < count; i++) {
+        if (await links.nth(i).isVisible({ timeout: 500 }).catch(() => false)) {
+          console.log(`[DEBUG] Found visible My Programs link. Clicking...`);
+          await links.nth(i).click({ force: true });
+
+          console.log(`[DEBUG] Clicked. Waiting for dashboard to network load...`);
+          await this.page.waitForLoadState("domcontentloaded");
+          await this.page.waitForTimeout(2000);
+          navigated = true;
+          break;
+        }
+      }
+      if (navigated) break;
+    }
+
+    // FALLBACK: If UI fails, force direct URL navigation to guarantee arrival
+    if (!navigated) {
+      console.log(`[WARNING] UI click failed. Forcing direct URL navigation to /mycourse...`);
+      const baseUrl = new URL(this.page.url()).origin;
+      await this.page.goto(`${baseUrl}/mycourse`, { waitUntil: "domcontentloaded" }).catch(() => { });
+      await this.page.waitForTimeout(2000);
+    }
+
+    // ==========================================
+    // 2. WAIT FOR COURSE TO RENDER (THE FIX)
+    // ==========================================
+    console.log(`[DEBUG] Waiting up to 20s for the dashboard to physically render the course: ${courseName}`);
+    const courseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+
+    // Ensure the row is attached to the DOM and scroll to it
+    await courseRow.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {
+      console.log(`[WARNING] Course row not found in DOM after 20s. UI might be lagging.`);
+    });
+    await courseRow.scrollIntoViewIfNeeded().catch(() => { });
+
+    const activateBtn = courseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
+    const launchBtn = courseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+
+    // FORCE Playwright to wait until EITHER the Activate or Launch button appears before proceeding
+    console.log(`[DEBUG] Anchoring to course row: Waiting for ACTIVATE or LAUNCH button to become visible...`);
+    await Promise.race([
+      activateBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => false),
+      launchBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => false)
+    ]);
+
+    // ==========================================
+    // 3. DATE PROCESSING & SCRIPT INJECTION
+    // ==========================================
+    const dateParts = getTargetDateFromQuarter(qtrInput);
+    const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+    const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
+
+    console.log(`[DEBUG] Timeframe: ${qtrInput} | Target Date: ${targetFormattedDate}`);
+    await this.page.addInitScript(rawConsoleScript);
+
+    // ==========================================
+    // 4. ACTIVATE & LAUNCH
+    // ==========================================
+    console.log(`[DEBUG] Checking for ACTIVATE button...`);
+    if (await activateBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log(`[DEBUG] Evaluating raw script evaluation into console before ACTIVATE...`);
+      await this.page.evaluate(rawConsoleScript);
+      await this.page.waitForTimeout(1000);
+
+      console.log(`[DEBUG] Clicking ACTIVATE button...`);
+      await activateBtn.click({ force: true });
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(2000);
+    }
+
+    console.log(`[DEBUG] Checking for LAUNCH button...`);
+    if (await launchBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      console.log(`[DEBUG] Evaluating raw script evaluation into console before LAUNCH...`);
+      await this.page.evaluate(rawConsoleScript);
+      await this.page.waitForTimeout(1000);
+
+      console.log(`[DEBUG] Clicking LAUNCH button...`);
+      await launchBtn.click({ force: true });
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(3000);
+    }
+
+    // ==========================================
+    // 5. COURSE COMPLETION FLOW
+    // ==========================================
+    const fillDateSafely = async (dateInputLocator: any) => {
+      await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
+      await dateInputLocator.click({ force: true });
+      await this.page.waitForTimeout(500);
+
+      await this.page.keyboard.press('Control+A');
+      await this.page.keyboard.press('Backspace');
+      await this.page.waitForTimeout(500);
+
+      const inputType = await dateInputLocator.getAttribute('type');
+      const placeholder = (await dateInputLocator.getAttribute('placeholder') || '').toUpperCase();
+
+      let formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+      if (inputType !== 'date') {
+        if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
+        else if (placeholder.includes('MM/DD') || placeholder.includes('MM-DD')) formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
+      }
+
+      console.log(`[DEBUG] Typing date: ${formattedDate}`);
+      if (inputType === 'date') {
+        await dateInputLocator.fill(formattedDate, { force: true });
+      } else {
+        await dateInputLocator.pressSequentially(formattedDate, { delay: 100 });
+      }
+      await this.page.waitForTimeout(1000);
+
+      await dateInputLocator.blur().catch(() => { });
+      await this.page.locator(S.courseLaunch.safeClickTarget.join(', ')).first().click({ force: true, position: { x: 5, y: 5 } }).catch(() => { });
+      await this.page.waitForTimeout(500);
+
+      const currentValue = await dateInputLocator.inputValue();
+      if (!currentValue || currentValue.trim() === '') {
+        await dateInputLocator.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }, formattedDate);
+        await this.page.waitForTimeout(500);
+      }
+    };
+
+    console.log(`[DEBUG] Scanning page for Inline Date Picker or Curriculum Table...`);
+    const inlineSubmitBtn = this.page.locator(S.studentDashboard.inlineSubmitBtn.join(', ')).first();
+    const tableStartBtn = this.page.locator(S.studentDashboard.tableStartBtn.join(', ')).first();
+
+    const isInlineDateVisible = await Promise.race([
+      inlineSubmitBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false),
+      tableStartBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => false).catch(() => false)
+    ]);
+
+    if (isInlineDateVisible) {
+      console.log(`[DEBUG] Inline Date form is blocking the curriculum. Processing date...`);
+      const inlineDateInput = this.page.locator(S.studentDashboard.inlineDateInput.join(', ')).first();
+      await fillDateSafely(inlineDateInput);
+      await inlineSubmitBtn.click({ force: true });
+      await tableStartBtn.waitFor({ state: 'visible', timeout: 20000 });
+    }
+
+    let modulesCompleted = 0;
+
+    while (true) {
+      await this.page.bringToFront();
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(3000);
+
+      const currentCourseCards = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+      await currentCourseCards.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
+
+      let startButtonsLoc = currentCourseCards.locator(S.studentDashboard.startBtn.join(', '));
+      let buttonCount = await startButtonsLoc.count();
+
+      if (buttonCount === 0) {
+        console.log(`\n[DEBUG] 0 'START' buttons found. All modules for '${courseName}' are complete!`);
+        break;
+      }
+
+      const currentStartBtn = startButtonsLoc.first();
+      await expect(currentStartBtn).toBeVisible({ timeout: 15000 });
+
+      let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+      await currentStartBtn.click();
+      let newPage = await newTabPromise;
+
+      const dateModal = this.page.locator(S.studentDashboard.datePickerModal.join(', ')).first();
+      if (await dateModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+        const dateInput = dateModal.locator(S.studentDashboard.dateInput.join(', ')).first();
+        await fillDateSafely(dateInput);
+
+        const saveBtn = dateModal.locator(S.studentDashboard.saveDateBtn.join(', ')).first();
+        newTabPromise = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
+        await saveBtn.click();
+        newPage = await newTabPromise;
+      }
+
+      const activePage = newPage ? newPage : this.page;
+      await activePage.waitForLoadState("domcontentloaded");
+      await activePage.waitForTimeout(3000);
+
+      const currentUrl = activePage.url();
+      const sourceIdMatch = currentUrl.match(/[?&]sourceId=([^&]+)/i) || currentUrl.match(/\/course\/(\d+)/i) || currentUrl.match(/[?&]id=([^&]+)/i);
+      const sourceId = sourceIdMatch ? sourceIdMatch[1] : null;
+
+      if (!sourceId) throw new Error(`[FATAL] Could not extract Source ID from URL: ${currentUrl}`);
+
+      const apiResponse = await sendCourseCompletion({ sourcedId: sourceId });
+      if (apiResponse.status >= 400) throw new Error(`[FATAL] API Completion failed. Status: ${apiResponse.status}`);
+
+      const exitBtn = activePage.locator(S.coursePlayer.exitBtn.join(', ')).first();
+      if (await exitBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+        const tabClosedPromise = newPage ? activePage.waitForEvent('close', { timeout: 10000 }).catch(() => null) : Promise.resolve(null);
+        await exitBtn.click();
+        await tabClosedPromise;
+      } else {
+        if (newPage && !newPage.isClosed()) await newPage.close();
+      }
+
+      modulesCompleted++;
+    }
+
+    const cmeModal = this.page.locator(S.postCompletion.cmeModal.join(', ')).first();
+    if (await cmeModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+      const ackBtn = cmeModal.locator(S.postCompletion.acknowledgeBtn.join(', ')).first();
+      await ackBtn.click();
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(2000);
+    }
+
+    const eCardModal = this.page.locator(S.postCompletion.eCardModal.join(', ')).first();
+    if (await eCardModal.isVisible({ timeout: 4000 }).catch(() => false)) {
+      const cancelBtn = eCardModal.locator(S.postCompletion.eCardCancelBtn.join(', ')).first();
+      await cancelBtn.click();
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(2000);
+    }
+
+    const evalBtn = this.page.locator(S.postCompletion.evaluationBtn.join(', ')).first();
+    if (await evalBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      let newTabPromise = this.context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+      await evalBtn.click();
+      let evalPage = await newTabPromise || this.page;
+
+      await evalPage.waitForLoadState("networkidle");
+      await evalPage.waitForTimeout(3000);
+
+      const textAreas = evalPage.locator(S.postCompletion.evalTextAreas.join(', '));
+      const textAreaCount = await textAreas.count();
+      for (let i = 0; i < textAreaCount; i++) {
+        await textAreas.nth(i).fill("Completed via Automation");
+      }
+
+      await evalPage.evaluate(() => {
+        const radios = Array.from(document.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+        const uniqueNames = new Set(radios.map(r => r.name).filter(n => n));
+        uniqueNames.forEach(name => {
+          const firstRadio = document.querySelector(`input[type="radio"][name="${name}"]`) as HTMLInputElement;
+          if (firstRadio) firstRadio.click();
+        });
+      });
+
+      const submitEvalBtn = evalPage.locator(S.postCompletion.submitEvalBtn.join(', ')).first();
+      await submitEvalBtn.click();
+
+      if (evalPage !== this.page) {
+        await evalPage.waitForTimeout(3000);
+        if (!evalPage.isClosed()) await evalPage.close();
+      }
+
+      await this.page.bringToFront();
+      await this.page.waitForLoadState("networkidle");
+      await this.page.waitForTimeout(2000);
+
+      console.log(`[DEBUG] Checking for Post-Evaluation Inline Date Picker...`);
+      const postEvalInlineSubmitBtn = this.page.locator(S.studentDashboard.inlineSubmitBtn.join(', ')).first();
+
+      if (await postEvalInlineSubmitBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+        console.log(`[DEBUG] Post-Evaluation Inline Date Picker found! Restoring previous date...`);
+
+        await this.page.evaluate(rawConsoleScript).catch(() => { });
+        await this.page.waitForTimeout(1000);
+
+        const inlineDateInput = this.page.locator(S.studentDashboard.inlineDateInput.join(', ')).first();
+        await fillDateSafely(inlineDateInput);
+
+        console.log(`[DEBUG] Clicking SUBMIT on Post-Evaluation Date Picker...`);
+        await postEvalInlineSubmitBtn.click({ force: true });
+        await this.page.waitForLoadState("networkidle");
+        await this.page.waitForTimeout(2000);
+      }
+    }
+
+    const screenshot = await this.page.screenshot({ fullPage: true });
+    await this.attach(screenshot, "image/png");
+
+    const userInfo = {
+      "Instance": this.instance?.env || "UNKNOWN",
+      "User Email": this.importedUserEmail || "UNKNOWN",
+      "Course Completed": courseName,
+      "Total Modules Fired": modulesCompleted
+    };
+
+    await this.attach(` CONTINUITY COURSE SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
   }
 );

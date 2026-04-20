@@ -1,6 +1,6 @@
 Feature: Course launch and completion for CTC user.
 
-  @smoke @test @completion1
+  @smoke @test @completion
   Scenario: BLS Complete course launch and completion for CTC user
     Given Launch the application
     Then Login with admin credentials
@@ -23,7 +23,7 @@ Feature: Course launch and completion for CTC user.
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
     #Then I activate and launch the assigned course
-    Then I launch and complete the assigned course for "qtr 0"
+    Then I launch and complete the assigned course "HeartCode® BLS Complete" for "qtr 0"
     Then the page should be accessible
 
   @smoke @test @completion
@@ -49,10 +49,10 @@ Feature: Course launch and completion for CTC user.
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
     #Then I activate and launch the assigned course
-    Then I launch and complete the assigned course for "qtr -4"
+    Then I launch and complete the assigned course "RQI® BLS Provider - True Start" for "qtr -2"
     Then the page should be accessible
 
-  @smoke @test @completion2
+  @smoke @test @completion
   Scenario: BLS TrueStart course launch and completion for CTC user
     Given Launch the application
     Then Login with admin credentials
@@ -78,7 +78,7 @@ Feature: Course launch and completion for CTC user.
     Then I retrieve the password reset link from Zimbra for the newly created user
     Then I reset the user password, login, and save the user details
     #Then I activate and launch the assigned course
-    Then I launch and complete the assigned course for "qtr -4"
+    Then I launch and complete the assigned course "RQI® BLS Provider - True Start" for "qtr -4"
     Then the page should be accessible
-    Then I launch and complete the specific course "courseId2" for "qtr -3"
+    Then I launch and complete the specific course "RQI® BLS Provider - Perpetual" for "qtr 0"
     Then the page should be accessible

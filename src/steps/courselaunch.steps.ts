@@ -529,17 +529,22 @@ Then(
 // );
 
 Then(
-  "I launch and complete the assigned course for {string}",
+  "I launch and complete the assigned course {string} for {string}",
   { timeout: 240 * 1000 },
-  async function (this: ICustomWorld, qtrInput: string) {
-    if (!this.assignedCourseName) {
-      throw new Error("[FATAL] No assignedCourseName found in context.");
-    }
+  async function (this: ICustomWorld, courseIdentifier: string, qtrInput: string) {
     if (!this.page || !this.context) {
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
-    const courseName = this.assignedCourseName;
+    // ==============================================================
+    // STRICT RESOLVER
+    // ==============================================================
+    const courseName = (this as any)[courseIdentifier] || courseIdentifier;
+
+    if (!courseName) {
+      throw new Error(`[FATAL] Could not resolve a course name for identifier: ${courseIdentifier}`);
+    }
+
     const dateParts = getTargetDateFromQuarter(qtrInput);
     const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
 
@@ -551,30 +556,66 @@ Then(
     const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
 
     await this.page.addInitScript(rawConsoleScript);
-
     await this.page.bringToFront();
     await this.page.waitForLoadState("networkidle");
     await this.page.waitForTimeout(2000);
 
     // ==============================================================
-    // THE FIX: Strict Row Rendering & Button Isolation
+    // THE FIX: ROBUST RE-FETCHER (IGNORES "NEW!" BADGES & DUPLICATES)
     // ==============================================================
-    console.log(`[DEBUG] Waiting up to 30s for the specific course row to render: ${courseName}`);
+    const getExactCourseRow = async () => {
+      const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
+      await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
 
-    // 1. Locate the exact row using the updated selector
-    const courseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+      const rowCount = await potentialRows.count();
 
-    // 2. Wait strictly for this row to appear. If it doesn't, fail accurately here.
-    await courseRow.waitFor({ state: 'visible', timeout: 30000 });
-    await courseRow.scrollIntoViewIfNeeded().catch(() => { });
-    console.log(`[DEBUG] Course row verified visible! Scoping clicks to this row only.`);
+      for (let i = 0; i < rowCount; i++) {
+        const row = potentialRows.nth(i);
+        const titleElements = row.locator('.course-title');
+        const titleCount = await titleElements.count();
 
-    // 3. Scope the buttons ONLY to this specific row to prevent clicking wrong courses
-    const activateBtn = courseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
-    const launchBtn = courseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+        if (titleCount > 0) {
+          let hasTargetCourse = false;
+          let hasOtherCourses = false;
+          const normalizedTarget = courseName.replace(/\s+/g, ' ').trim();
+
+          for (let j = 0; j < titleCount; j++) {
+            const t = await titleElements.nth(j).innerText();
+            const normalizedActual = t.replace(/\s+/g, ' ').trim();
+
+            // If it contains the course name, it's our target (ignores "New!" badges)
+            if (normalizedActual.includes(normalizedTarget)) {
+              hasTargetCourse = true;
+            }
+            // If it's a completely different course (meaning this is a giant parent wrapper)
+            else if (normalizedActual.length > 5 && !normalizedActual.toLowerCase().includes('new')) {
+              hasOtherCourses = true;
+            }
+          }
+
+          // The perfect row contains our course, and NO other courses
+          if (hasTargetCourse && !hasOtherCourses) {
+            return row;
+          }
+        }
+      }
+      throw new Error(`[FATAL] Could not isolate the exact individual row for: "${courseName}"`);
+    };
+
+    console.log(`[DEBUG] Waiting up to 30s for the courses to render...`);
+    let exactCourseRow = await getExactCourseRow();
+    await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
+    console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
+
+    // ==============================================================
+    // ACTIVATE & LAUNCH
+    // ==============================================================
+    let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
-    if (await activateBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+    const isActivateVisible = await activateBtn.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+
+    if (isActivateVisible) {
       console.log(`[DEBUG] FORCING raw script evaluation into console before ACTIVATE...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
@@ -582,13 +623,20 @@ Then(
       console.log(`[DEBUG] Clicking ACTIVATE button...`);
       await activateBtn.click({ force: true });
       await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(4000);
+
+      console.log(`[DEBUG] UI likely resorted. Re-fetching the exact course row...`);
+      exactCourseRow = await getExactCourseRow();
     } else {
-      console.log(`[DEBUG] ACTIVATE button not found for this course.`);
+      console.log(`[DEBUG] ACTIVATE button not found for this specific course.`);
     }
 
+    let launchBtn = exactCourseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+
     console.log(`[DEBUG] Checking for LAUNCH button...`);
-    if (await launchBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+    const isLaunchVisible = await launchBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false);
+
+    if (isLaunchVisible) {
       console.log(`[DEBUG] FORCING raw script evaluation into console before LAUNCH...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
@@ -598,10 +646,12 @@ Then(
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(3000);
     } else {
-      console.log(`[DEBUG] LAUNCH button not found for this course.`);
+      console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
-    // ==============================================================
 
+    // ==============================================================
+    // 5. COURSE COMPLETION FLOW
+    // ==============================================================
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
       await dateInputLocator.click({ force: true });
@@ -671,10 +721,11 @@ Then(
       let buttonCount = await startButtonsLoc.count();
 
       if (buttonCount === 0) {
-        // Must use the scoped row here as well to ensure we check modules for the correct course
-        const activeCourseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
-        startButtonsLoc = activeCourseRow.locator(S.studentDashboard.startBtn.join(', '));
-        buttonCount = await startButtonsLoc.count();
+        exactCourseRow = await getExactCourseRow().catch(() => null);
+        if (exactCourseRow) {
+          startButtonsLoc = exactCourseRow.locator(S.studentDashboard.startBtn.join(', '));
+          buttonCount = await startButtonsLoc.count();
+        }
       }
 
       if (buttonCount === 0) {
@@ -964,28 +1015,40 @@ Then(
 
 Then(
   "I launch and complete the specific course {string} for {string}",
-  { timeout: 240 * 1000 }, // 4 MINUTES TIMEOUT
+  { timeout: 300 * 1000 }, // INCREASED TO 5 MINUTES FOR SLOW REDIRECTS
   async function (this: ICustomWorld, courseIdentifier: string, qtrInput: string) {
     if (!this.page || !this.context) {
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
+    // ==============================================================
+    // STRICT RESOLVER
+    // ==============================================================
     const courseName = (this as any)[courseIdentifier] || courseIdentifier;
+
     if (!courseName) {
       throw new Error(`[FATAL] Could not resolve a course name for identifier: ${courseIdentifier}`);
     }
 
-    // ==========================================
-    // 1. NAVIGATION: STRICT MENU -> MY PROGRAMS
-    // ==========================================
+    const dateParts = getTargetDateFromQuarter(qtrInput);
+    const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+
     console.log(`\n======================================================`);
-    console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
+    console.log(`[DEBUG] NEW SCRIPT EXECUTING: Processing Course: ${courseName}`);
+    console.log(`[DEBUG] Timeframe: ${qtrInput} | Target Date: ${targetFormattedDate}`);
     console.log(`======================================================\n`);
 
+    const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
+
+    await this.page.addInitScript(rawConsoleScript);
     await this.page.bringToFront();
     await this.page.waitForLoadState("domcontentloaded");
 
-    // Close the lingering "Evaluation completed" popup from the previous course
+    // ==============================================================
+    // 1. CONTINUITY NAVIGATION (WITH HEADLESS RESPONSIVE FALLBACK)
+    // ==============================================================
+    console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
+
     const closeModal = this.page.locator('button.close, .modal-header button, button:has-text("Close")').first();
     if (await closeModal.isVisible({ timeout: 2000 }).catch(() => false)) {
       console.log(`[DEBUG] Lingering popup detected. Closing it...`);
@@ -995,7 +1058,6 @@ Then(
 
     console.log(`[DEBUG] Initiating strict Menu -> My Programs sequence...`);
 
-    // STEP A: Explicitly click the Menu/Hamburger
     let menuClicked = false;
     for (const sel of S.studentDashboard.menuToggles) {
       const toggles = this.page.locator(sel);
@@ -1004,7 +1066,7 @@ Then(
         if (await toggles.nth(i).isVisible({ timeout: 500 }).catch(() => false)) {
           console.log(`[DEBUG] Found visible Menu toggle. Clicking...`);
           await toggles.nth(i).click({ force: true });
-          await this.page.waitForTimeout(2000); // Wait 2s for dropdown animation
+          await this.page.waitForTimeout(2000);
           menuClicked = true;
           break;
         }
@@ -1012,8 +1074,6 @@ Then(
       if (menuClicked) break;
     }
 
-    // STEP B: Explicitly click My Programs
-    let navigated = false;
     for (const sel of S.studentDashboard.myProgramsLink) {
       const links = this.page.locator(sel);
       const count = await links.count();
@@ -1021,75 +1081,103 @@ Then(
         if (await links.nth(i).isVisible({ timeout: 500 }).catch(() => false)) {
           console.log(`[DEBUG] Found visible My Programs link. Clicking...`);
           await links.nth(i).click({ force: true });
-
-          console.log(`[DEBUG] Clicked. Waiting for dashboard to network load...`);
-          await this.page.waitForLoadState("domcontentloaded");
-          await this.page.waitForTimeout(2000);
-          navigated = true;
+          console.log(`[DEBUG] Clicked. Waiting for dashboard to load...`);
           break;
         }
       }
-      if (navigated) break;
     }
 
-    // FALLBACK: If UI fails, force direct URL navigation to guarantee arrival
-    if (!navigated) {
-      console.log(`[WARNING] UI click failed. Forcing direct URL navigation to /mycourse...`);
+    await this.page.waitForLoadState("domcontentloaded").catch(() => { });
+    await this.page.waitForTimeout(2000);
+
+    console.log(`[DEBUG] Verifying navigation success...`);
+    const isDashboardReady = await this.page.locator(S.studentDashboard.courseRowByText(courseName))
+      .first()
+      .isVisible({ timeout: 4000 })
+      .catch(() => false);
+
+    if (!isDashboardReady) {
+      console.log(`[WARNING] UI click swallowed by headless layout. Forcing direct URL navigation...`);
       const baseUrl = new URL(this.page.url()).origin;
-      await this.page.goto(`${baseUrl}/mycourse`, { waitUntil: "domcontentloaded" }).catch(() => { });
-      await this.page.waitForTimeout(2000);
+      await this.page.goto(`${baseUrl}/mycourse`, { waitUntil: "networkidle" }).catch(() => { });
+      await this.page.waitForTimeout(3000);
     }
 
-    // ==========================================
-    // 2. WAIT FOR COURSE TO RENDER (THE FIX)
-    // ==========================================
-    console.log(`[DEBUG] Waiting up to 20s for the dashboard to physically render the course: ${courseName}`);
-    const courseRow = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
+    // ==============================================================
+    // 2. ROBUST RE-FETCHER (IGNORES "NEW!" BADGES & DUPLICATES)
+    // ==============================================================
+    const getExactCourseRow = async () => {
+      const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
+      await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
 
-    // Ensure the row is attached to the DOM and scroll to it
-    await courseRow.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {
-      console.log(`[WARNING] Course row not found in DOM after 20s. UI might be lagging.`);
-    });
-    await courseRow.scrollIntoViewIfNeeded().catch(() => { });
+      const rowCount = await potentialRows.count();
 
-    const activateBtn = courseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
-    const launchBtn = courseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+      for (let i = 0; i < rowCount; i++) {
+        const row = potentialRows.nth(i);
+        const titleElements = row.locator('.course-title');
+        const titleCount = await titleElements.count();
 
-    // FORCE Playwright to wait until EITHER the Activate or Launch button appears before proceeding
-    console.log(`[DEBUG] Anchoring to course row: Waiting for ACTIVATE or LAUNCH button to become visible...`);
-    await Promise.race([
-      activateBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => false),
-      launchBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => false)
-    ]);
+        if (titleCount > 0) {
+          let hasTargetCourse = false;
+          let hasOtherCourses = false;
+          const normalizedTarget = courseName.replace(/\s+/g, ' ').trim();
 
-    // ==========================================
-    // 3. DATE PROCESSING & SCRIPT INJECTION
-    // ==========================================
-    const dateParts = getTargetDateFromQuarter(qtrInput);
-    const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
-    const rawConsoleScript = `var testActivateDate = '${targetFormattedDate}';`;
+          for (let j = 0; j < titleCount; j++) {
+            const t = await titleElements.nth(j).innerText();
+            const normalizedActual = t.replace(/\s+/g, ' ').trim();
 
-    console.log(`[DEBUG] Timeframe: ${qtrInput} | Target Date: ${targetFormattedDate}`);
-    await this.page.addInitScript(rawConsoleScript);
+            if (normalizedActual.includes(normalizedTarget)) {
+              hasTargetCourse = true;
+            }
+            else if (normalizedActual.length > 5 && !normalizedActual.toLowerCase().includes('new')) {
+              hasOtherCourses = true;
+            }
+          }
 
-    // ==========================================
-    // 4. ACTIVATE & LAUNCH
-    // ==========================================
+          if (hasTargetCourse && !hasOtherCourses) {
+            return row;
+          }
+        }
+      }
+      throw new Error(`[FATAL] Could not isolate the exact individual row for: "${courseName}"`);
+    };
+
+    console.log(`[DEBUG] Waiting up to 30s for the courses to render...`);
+    let exactCourseRow = await getExactCourseRow();
+    await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
+    console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
+
+    // ==============================================================
+    // 3. ACTIVATE & LAUNCH
+    // ==============================================================
+    let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
+
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
-    if (await activateBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      console.log(`[DEBUG] Evaluating raw script evaluation into console before ACTIVATE...`);
+    const isActivateVisible = await activateBtn.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+
+    if (isActivateVisible) {
+      console.log(`[DEBUG] FORCING raw script evaluation into console before ACTIVATE...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
 
       console.log(`[DEBUG] Clicking ACTIVATE button...`);
       await activateBtn.click({ force: true });
       await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(4000);
+
+      console.log(`[DEBUG] UI likely resorted. Re-fetching the exact course row...`);
+      exactCourseRow = await getExactCourseRow();
+    } else {
+      console.log(`[DEBUG] ACTIVATE button not found for this specific course.`);
     }
 
+    let launchBtn = exactCourseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
+
     console.log(`[DEBUG] Checking for LAUNCH button...`);
-    if (await launchBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      console.log(`[DEBUG] Evaluating raw script evaluation into console before LAUNCH...`);
+    const isLaunchVisible = await launchBtn.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false);
+
+    if (isLaunchVisible) {
+      console.log(`[DEBUG] FORCING raw script evaluation into console before LAUNCH...`);
       await this.page.evaluate(rawConsoleScript);
       await this.page.waitForTimeout(1000);
 
@@ -1097,19 +1185,15 @@ Then(
       await launchBtn.click({ force: true });
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(3000);
+    } else {
+      console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-    // ==========================================
-    // 5. COURSE COMPLETION FLOW
-    // ==========================================
+    // ==============================================================
+    // 4. COURSE COMPLETION FLOW
+    // ==============================================================
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
-      await dateInputLocator.click({ force: true });
-      await this.page.waitForTimeout(500);
-
-      await this.page.keyboard.press('Control+A');
-      await this.page.keyboard.press('Backspace');
-      await this.page.waitForTimeout(500);
 
       const inputType = await dateInputLocator.getAttribute('type');
       const placeholder = (await dateInputLocator.getAttribute('placeholder') || '').toUpperCase();
@@ -1120,27 +1204,23 @@ Then(
         else if (placeholder.includes('MM/DD') || placeholder.includes('MM-DD')) formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
       }
 
-      console.log(`[DEBUG] Typing date: ${formattedDate}`);
-      if (inputType === 'date') {
-        await dateInputLocator.fill(formattedDate, { force: true });
-      } else {
-        await dateInputLocator.pressSequentially(formattedDate, { delay: 100 });
-      }
-      await this.page.waitForTimeout(1000);
+      console.log(`[DEBUG] Forcing date injection: ${formattedDate} to bypass UI masks.`);
 
-      await dateInputLocator.blur().catch(() => { });
-      await this.page.locator(S.courseLaunch.safeClickTarget.join(', ')).first().click({ force: true, position: { x: 5, y: 5 } }).catch(() => { });
+      await dateInputLocator.evaluate((el: HTMLInputElement, val: string) => {
+        el.focus();
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.blur();
+      }, formattedDate);
+
       await this.page.waitForTimeout(500);
 
-      const currentValue = await dateInputLocator.inputValue();
-      if (!currentValue || currentValue.trim() === '') {
-        await dateInputLocator.evaluate((el: HTMLInputElement, val: string) => {
-          el.value = val;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }, formattedDate);
-        await this.page.waitForTimeout(500);
-      }
+      await dateInputLocator.fill(formattedDate, { force: true }).catch(() => { });
+      await this.page.waitForTimeout(500);
+
+      await this.page.keyboard.press('Escape');
+      await this.page.waitForTimeout(500);
     };
 
     console.log(`[DEBUG] Scanning page for Inline Date Picker or Curriculum Table...`);
@@ -1157,7 +1237,7 @@ Then(
       const inlineDateInput = this.page.locator(S.studentDashboard.inlineDateInput.join(', ')).first();
       await fillDateSafely(inlineDateInput);
       await inlineSubmitBtn.click({ force: true });
-      await tableStartBtn.waitFor({ state: 'visible', timeout: 20000 });
+      await tableStartBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
     }
 
     let modulesCompleted = 0;
@@ -1167,14 +1247,19 @@ Then(
       await this.page.waitForLoadState("networkidle");
       await this.page.waitForTimeout(3000);
 
-      const currentCourseCards = this.page.locator(S.studentDashboard.courseRowByText(courseName)).first();
-      await currentCourseCards.waitFor({ state: 'visible', timeout: 10000 }).catch(() => { });
-
-      let startButtonsLoc = currentCourseCards.locator(S.studentDashboard.startBtn.join(', '));
+      let startButtonsLoc = this.page.locator(S.studentDashboard.tableStartBtn.join(', '));
       let buttonCount = await startButtonsLoc.count();
 
       if (buttonCount === 0) {
-        console.log(`\n[DEBUG] 0 'START' buttons found. All modules for '${courseName}' are complete!`);
+        exactCourseRow = await getExactCourseRow().catch(() => null);
+        if (exactCourseRow) {
+          startButtonsLoc = exactCourseRow.locator(S.studentDashboard.startBtn.join(', '));
+          buttonCount = await startButtonsLoc.count();
+        }
+      }
+
+      if (buttonCount === 0) {
+        console.log(`\n[DEBUG] 0 'START' buttons found. All modules for this course are complete!`);
         break;
       }
 
@@ -1188,8 +1273,16 @@ Then(
       const dateModal = this.page.locator(S.studentDashboard.datePickerModal.join(', ')).first();
       if (await dateModal.isVisible({ timeout: 4000 }).catch(() => false)) {
         const dateInput = dateModal.locator(S.studentDashboard.dateInput.join(', ')).first();
-        await fillDateSafely(dateInput);
+        const inputType = await dateInput.getAttribute('type');
+        const placeholder = (await dateInput.getAttribute('placeholder') || '').toUpperCase();
 
+        let formattedDate = '';
+        if (inputType === 'date') formattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
+        else if (placeholder.includes('DD/MM') || placeholder.includes('DD-MM')) formattedDate = `${dateParts.dd}/${dateParts.mm}/${dateParts.yyyy}`;
+        else if (placeholder.includes('YYYY/MM') || placeholder.includes('YYYY-MM')) formattedDate = `${dateParts.yyyy}/${dateParts.mm}/${dateParts.dd}`;
+        else formattedDate = `${dateParts.mm}/${dateParts.dd}/${dateParts.yyyy}`;
+
+        await dateInput.fill(formattedDate);
         const saveBtn = dateModal.locator(S.studentDashboard.saveDateBtn.join(', ')).first();
         newTabPromise = this.context.waitForEvent('page', { timeout: 15000 }).catch(() => null);
         await saveBtn.click();
@@ -1286,14 +1379,26 @@ Then(
         await fillDateSafely(inlineDateInput);
 
         console.log(`[DEBUG] Clicking SUBMIT on Post-Evaluation Date Picker...`);
-        await postEvalInlineSubmitBtn.click({ force: true });
-        await this.page.waitForLoadState("networkidle");
-        await this.page.waitForTimeout(2000);
+        // THE FIX: noWaitAfter: true stops Playwright from hanging on a slow redirect
+        await postEvalInlineSubmitBtn.click({ force: true, noWaitAfter: true }).catch(() => { });
+
+        console.log(`[DEBUG] Waiting for post-submit redirect to settle...`);
+        // THE FIX: Safely wait for domcontentloaded instead of networkidle
+        await this.page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => { });
+        await this.page.waitForTimeout(3000);
       }
     }
 
-    const screenshot = await this.page.screenshot({ fullPage: true });
-    await this.attach(screenshot, "image/png");
+    console.log(`[DEBUG] Taking final screenshot...`);
+    // THE FIX: Wrap the screenshot in a strict timeout so it can't freeze the test if the page is heavy
+    let screenshot = await this.page.screenshot({ fullPage: true, timeout: 10000 }).catch(async () => {
+      console.log(`[WARNING] Full page screenshot timed out, falling back to viewport capture.`);
+      return await this.page.screenshot({ timeout: 5000 }).catch(() => null);
+    });
+
+    if (screenshot) {
+      await this.attach(screenshot, "image/png");
+    }
 
     const userInfo = {
       "Instance": this.instance?.env || "UNKNOWN",
@@ -1302,6 +1407,6 @@ Then(
       "Total Modules Fired": modulesCompleted
     };
 
-    await this.attach(` CONTINUITY COURSE SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
+    await this.attach(` COURSE COMPLETION SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
   }
 );

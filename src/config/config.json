@@ -1,7 +1,7 @@
 {
   "instances": {
     "maurya": {
-  "adminPool": [
+      "adminPool": [
         {
           "email": "adminloginoct_13@rqimail.laerdalblr.in",
           "password": "Password@1234"
@@ -16,6 +16,26 @@
         },
         {
           "email": "Admindelete_01@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        }
+      ]
+    },
+    "qa-samurai": {
+      "adminPool": [
+        {
+          "email": "samuraiadmin_01@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "samuraiadmin_01@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "samuraiadmin_01@rqimail.laerdalblr.in",
+          "password": "Password@1234"
+        },
+        {
+          "email": "samuraiadmin_01@rqimail.laerdalblr.in",
           "password": "Password@1234"
         }
       ]

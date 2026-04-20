@@ -424,6 +424,7 @@ export const S = {
     emailLinkStandard: ['a:has-text("Account created")']
   },
 
+
   // ✅ UPDATED: Password Reset Screen Selectors
   resetPassword: {
     newPasswordInput: [
@@ -495,8 +496,7 @@ export const S = {
     courseStartBtn: (courseName: string) =>
       `div:has-text("${courseName}") button:has-text("Start"), div:has-text("${courseName}") button:has-text("Launch")`,
     launchBtn: ['button:has-text("Launch")', 'button:has-text("Start")', 'a:has-text("Launch")'],
-    courseRowByText: (courseName: string) =>
-      `.list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}"), div.card:has-text("${courseName}")`,
+    courseRowByText: (courseName: string) => `.row.inner-content:has(span.course-title:has-text("${courseName}")), .list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}"), div.card:has-text("${courseName}")`,
     activateBtn: ['button:has-text("Activate")', 'a:has-text("Activate")'],
     tableStartBtn: [
       'table tr button:has-text("START")',
@@ -533,6 +533,20 @@ export const S = {
       'input[type="date"]',
       'input[placeholder*="YYYY"]',
     ],
+    menuToggles: [
+      '#my_programs_menu_item',
+      '.navbar-toggle',
+      '.hamburger',
+      '[aria-label*="menu" i]',
+      'button:has-text("Menu")',
+      'a:has-text("Menu")'
+    ] as const,
+
+    myProgramsLink: [
+      '#my_programs_menu_item',
+      'a[href="/mycourse"]',
+      'a:has-text("My Program")'
+    ]
   },
   courseLaunch: {
     safeClickTarget: ['h1', 'body'],

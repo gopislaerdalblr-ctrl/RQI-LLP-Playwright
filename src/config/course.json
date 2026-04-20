@@ -5,5 +5,9 @@
 
   "courseName1": "RQI® BLS Provider - True Start",
   "courseId1": "RQI® BLS Provider - True Start (25-3500TS)",
-  "defaultTags1": "@smoke, @test"
+  "defaultTags1": "@smoke, @test",
+  
+  "courseName2": "RQI® BLS Provider - Perpetual",
+  "courseId2": "RQI® BLS Provider - Perpetual (25-3500)",
+  "defaultTags2": "@smoke, @test"
 }

@@ -496,7 +496,7 @@ export const S = {
     courseStartBtn: (courseName: string) =>
       `div:has-text("${courseName}") button:has-text("Start"), div:has-text("${courseName}") button:has-text("Launch")`,
     launchBtn: ['button:has-text("Launch")', 'button:has-text("Start")', 'a:has-text("Launch")'],
-    courseRowByText: (courseName: string) => `.row.inner-content:has(span.course-title:has-text("${courseName}")), .list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}"), div.card:has-text("${courseName}")`,
+    courseRowByText: (courseName: string) => `.inner-content:has(.course-title:has-text("${courseName}")), .list-group-item:has-text("${courseName}"), .course-card:has-text("${courseName}"), tr:has-text("${courseName}")`,
     activateBtn: ['button:has-text("Activate")', 'a:has-text("Activate")'],
     tableStartBtn: [
       'table tr button:has-text("START")',

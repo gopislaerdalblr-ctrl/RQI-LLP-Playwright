@@ -1,6 +1,6 @@
 Feature: Course launch and completion for CTC user.
 
-  @smoke @test @completion
+  @smoke @test @completion @demo1
   Scenario: BLS Complete course launch and completion for CTC user
     Given Launch the application
     Then Login with admin credentials
@@ -25,6 +25,17 @@ Feature: Course launch and completion for CTC user.
     #Then I activate and launch the assigned course
     Then I launch and complete the assigned course "HeartCode® BLS Complete" for "qtr 0"
     Then the page should be accessible
+    Then Launch the application
+    Then Login with admin credentials
+    Then Admin should be logged in successfully
+    Then Select Super admin role
+    Then Navigate to Admin Dashboard
+    Then Navigate to Organizations listing page
+    Then Admin search org by id "orgId"
+    Then Navigate to Access Organization page
+    Then I click on reports dropdown
+    Then I navigate to compliance report page
+    Then I search user with email id and validate for eCard compliance until date.
 
   @smoke @test @completion
   Scenario: BLS TrueStart course launch and completion for CTC user
@@ -90,4 +101,6 @@ Feature: Course launch and completion for CTC user.
     Then Navigate to Organizations listing page
     Then Admin search org by id "orgId7"
     Then Navigate to Access Organization page
-    
+    Then I click on reports dropdown
+    Then I navigate to compliance report page
+    Then I search user with email id and validate for eCard compliance until date.

@@ -444,7 +444,7 @@ Then(
     }
 
     const newUserRecord = {
-      "orgid": this.instance?.orgId || "UNKNOWN_ORG",
+      "orgid": this.activeOrgId || this.instance?.orgId || "UNKNOWN_ORG",
       "User email": this.importedUserEmail,
       "User first name": this.importedUserFirstName || "UNKNOWN_FIRST",
       "User last name": this.importedUserLastName || "UNKNOWN_LAST",
@@ -858,9 +858,15 @@ Then(
     const screenshot = await this.page.screenshot({ fullPage: true });
     await this.attach(screenshot, "image/png");
 
+    // ==============================================================
+    // THE FIX: DYNAMIC ORG ID INJECTION
+    // ==============================================================
     const userInfo = {
+      "orgid": this.activeOrgId || this.instance?.orgId || "UNKNOWN_ORG",
       "Instance": this.instance?.env || "UNKNOWN",
       "User Email": this.importedUserEmail || "UNKNOWN",
+      "User First Name": this.importedUserFirstName || "UNKNOWN_FIRST",
+      "User Last Name": this.importedUserLastName || "UNKNOWN_LAST",
       "Course Completed": courseName,
       "Total Modules Fired": modulesCompleted
     };
@@ -1401,8 +1407,11 @@ Then(
     }
 
     const userInfo = {
+      "orgid": this.activeOrgId || this.instance?.orgId || "UNKNOWN_ORG",
       "Instance": this.instance?.env || "UNKNOWN",
       "User Email": this.importedUserEmail || "UNKNOWN",
+      "User First Name": this.importedUserFirstName || "UNKNOWN_FIRST",
+      "User Last Name": this.importedUserLastName || "UNKNOWN_LAST",
       "Course Completed": courseName,
       "Total Modules Fired": modulesCompleted
     };

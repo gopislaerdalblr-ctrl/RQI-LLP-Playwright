@@ -12,10 +12,10 @@ Given("Launch the application", async function (this: ICustomWorld) {
 });
 
 Then("Login with admin credentials", async function (this: ICustomWorld) {
-  
+
   await clickIfPresent(this, S.adminLogin.signIn);
 
-  
+
   const emailSelector = S.adminLogin.email[0];
   await this.page.locator(emailSelector).first().waitFor({
     state: "attached",
@@ -30,10 +30,10 @@ Then("Login with admin credentials", async function (this: ICustomWorld) {
     strict: true,
   });
 
- 
+
   await clickIfPresent(this, S.adminLogin.submit, { strictClick: true });
 
-  
+
   await this.page.waitForURL((url: URL) => !url.href.includes("login"), {
     timeout: 30000,
   });
@@ -84,7 +84,7 @@ Then("Navigate to Admin Dashboard", async function (this: ICustomWorld) {
 Then(
   "Navigate to Organizations listing page",
   async function (this: ICustomWorld) {
-    
+
     const navSelector = S.adminLogin.admindashboard.OrgListingNav[0];
     await this.page
       .locator(navSelector)
@@ -128,8 +128,9 @@ Then(
     }
 
     if (!orgId) throw new Error(`OrgId lookup failed for: "${key}"`);
+    this.activeOrgId = orgId;
 
-    
+
     await fillIfPresent(this, S.adminLogin.orgListing.searchInput, orgId, {
       strict: true,
     });
@@ -137,7 +138,7 @@ Then(
       strictClick: true,
     });
 
-    
+
     await expect(this.page.locator(`text=${orgId}`).first()).toBeVisible({
       timeout: 15000,
     });
@@ -147,12 +148,12 @@ Then(
 Then(
   "Navigate to Organization details page",
   async function (this: ICustomWorld) {
-    
+
     const kababLocator = this.page.locator(S.adminLogin.orgListingActions.orgActions[0]).first();
     await kababLocator.waitFor({ state: "attached", timeout: 20000 });
     await kababLocator.waitFor({ state: "visible", timeout: 10000 });
 
-    
+
     const actionsClicked = await clickIfPresent(
       this,
       S.adminLogin.orgListingActions.orgActions,
@@ -165,7 +166,7 @@ Then(
       );
     }
 
-    
+
     await clickIfPresent(
       this,
       S.adminLogin.orgListingActions.orgDetailsAction,
@@ -182,7 +183,7 @@ Then(
 );
 
 Then("Navigate to products page", async function (this: ICustomWorld) {
-  
+
   const productSelector = S.adminLogin.orgProducts.orgProducts[0];
   await this.page
     .locator(productSelector)
@@ -203,15 +204,15 @@ Then("Navigate to products page", async function (this: ICustomWorld) {
 
 
 
-Then('Navigate back to Organizations listing page',async function (this: ICustomWorld) {
-           
-            const clicked = await clickIfPresent(this, S.adminLogin.orgListing.OrganizationsLink);
+Then('Navigate back to Organizations listing page', async function (this: ICustomWorld) {
+
+  const clicked = await clickIfPresent(this, S.adminLogin.orgListing.OrganizationsLink);
 
   if (!clicked) {
     throw new Error(" Failed to find or click the Organizations link.");
   }
-  await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+  await this.page.waitForLoadState("domcontentloaded").catch(() => { });
   await this.attach(`Mapsd back to: ${this.page.url()}`, "text/plain");
 
-         });
+});
 

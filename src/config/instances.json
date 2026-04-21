@@ -8,7 +8,8 @@
     "orgId3": "2005840",
     "orgId4": "2005871",
     "orgId5": "2005864",
-    "orgId6": "2000147"
+    "orgId6": "2000147",
+    "orgId7": "2006075"
   },
   "qa-samurai": {
     "env": "qa",
@@ -54,9 +55,8 @@
     "moodleUrl": "https://moodle-staging.laerdalblr.in/login/index.php",
     "env": "staging"
   },
-
-  "zimbra":{
+  "zimbra": {
     "env": "qa",
-    "baseUrl":"https://rqimail.laerdalblr.in/"
+    "baseUrl": "https://rqimail.laerdalblr.in/"
   }
 }

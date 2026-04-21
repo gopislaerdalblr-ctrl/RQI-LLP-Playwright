@@ -55,7 +55,7 @@ Before you begin, ensure you have the following installed:
 
     ```bash
     git clone [https://github.com/gopislaerdalblr-ctrl/RQI-LLP-Playwright.git](https://github.com/gopislaerdalblr-ctrl/RQI-LLP-Playwright.git)
-    cd pw-cucumber-ts
+    cd RQI-LLP-Playwright
     ```
 
 2.  **Install project dependencies:**

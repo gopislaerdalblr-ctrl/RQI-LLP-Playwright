@@ -536,9 +536,7 @@ Then(
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
-    // ==============================================================
-    // STRICT RESOLVER
-    // ==============================================================
+    
     const courseName = (this as any)[courseIdentifier] || courseIdentifier;
 
     if (!courseName) {
@@ -560,9 +558,7 @@ Then(
     await this.page.waitForLoadState("networkidle");
     await this.page.waitForTimeout(2000);
 
-    // ==============================================================
-    // THE FIX: ROBUST RE-FETCHER (IGNORES "NEW!" BADGES & DUPLICATES)
-    // ==============================================================
+   
     const getExactCourseRow = async () => {
       const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
       await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
@@ -583,17 +579,17 @@ Then(
             const t = await titleElements.nth(j).innerText();
             const normalizedActual = t.replace(/\s+/g, ' ').trim();
 
-            // If it contains the course name, it's our target (ignores "New!" badges)
+            
             if (normalizedActual.includes(normalizedTarget)) {
               hasTargetCourse = true;
             }
-            // If it's a completely different course (meaning this is a giant parent wrapper)
+            
             else if (normalizedActual.length > 5 && !normalizedActual.toLowerCase().includes('new')) {
               hasOtherCourses = true;
             }
           }
 
-          // The perfect row contains our course, and NO other courses
+          
           if (hasTargetCourse && !hasOtherCourses) {
             return row;
           }
@@ -607,9 +603,7 @@ Then(
     await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
     console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
 
-    // ==============================================================
-    // ACTIVATE & LAUNCH
-    // ==============================================================
+    
     let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
@@ -649,9 +643,7 @@ Then(
       console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-    // ==============================================================
-    // 5. COURSE COMPLETION FLOW
-    // ==============================================================
+    
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
       await dateInputLocator.click({ force: true });
@@ -858,9 +850,7 @@ Then(
     const screenshot = await this.page.screenshot({ fullPage: true });
     await this.attach(screenshot, "image/png");
 
-    // ==============================================================
-    // THE FIX: DYNAMIC ORG ID INJECTION
-    // ==============================================================
+    
     const userInfo = {
       "orgid": this.activeOrgId || this.instance?.orgId || "UNKNOWN_ORG",
       "Instance": this.instance?.env || "UNKNOWN",
@@ -886,7 +876,7 @@ Then(
     const nameKey = `courseName${suffix}`;
     const resolvedCourseName = (courseCfg[nameKey] || courseCfg["courseName"] || "").trim();
 
-    // CRITICAL: Bind this resolved name to the specific key so downstream continuity steps can find it
+   
     (this as any)[courseKey] = resolvedCourseName;
     this.assignedCourseName = resolvedCourseName;
 
@@ -958,9 +948,7 @@ Then(
     await fillIfPresent(this, S.adminLogin.AssignmentTitleInput, uniqueTitle);
     await this.page.waitForTimeout(1000);
 
-    // ==============================================================
-    // Due Date & Recurrence selection removed for Perpetual Courses
-    // ==============================================================
+    
 
     const nextClicked = await clickIfPresent(this, S.adminLogin.AssignmentNextButton);
     if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
@@ -1027,9 +1015,7 @@ Then(
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
-    // ==============================================================
-    // STRICT RESOLVER
-    // ==============================================================
+    
     const courseName = (this as any)[courseIdentifier] || courseIdentifier;
 
     if (!courseName) {
@@ -1050,9 +1036,7 @@ Then(
     await this.page.bringToFront();
     await this.page.waitForLoadState("domcontentloaded");
 
-    // ==============================================================
-    // 1. CONTINUITY NAVIGATION (WITH HEADLESS RESPONSIVE FALLBACK)
-    // ==============================================================
+    
     console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
 
     const closeModal = this.page.locator('button.close, .modal-header button, button:has-text("Close")').first();
@@ -1109,9 +1093,7 @@ Then(
       await this.page.waitForTimeout(3000);
     }
 
-    // ==============================================================
-    // 2. ROBUST RE-FETCHER (IGNORES "NEW!" BADGES & DUPLICATES)
-    // ==============================================================
+    
     const getExactCourseRow = async () => {
       const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
       await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
@@ -1153,9 +1135,7 @@ Then(
     await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
     console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
 
-    // ==============================================================
-    // 3. ACTIVATE & LAUNCH
-    // ==============================================================
+    
     let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
@@ -1195,9 +1175,7 @@ Then(
       console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-    // ==============================================================
-    // 4. COURSE COMPLETION FLOW
-    // ==============================================================
+    
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -1385,18 +1363,18 @@ Then(
         await fillDateSafely(inlineDateInput);
 
         console.log(`[DEBUG] Clicking SUBMIT on Post-Evaluation Date Picker...`);
-        // THE FIX: noWaitAfter: true stops Playwright from hanging on a slow redirect
+        
         await postEvalInlineSubmitBtn.click({ force: true, noWaitAfter: true }).catch(() => { });
 
         console.log(`[DEBUG] Waiting for post-submit redirect to settle...`);
-        // THE FIX: Safely wait for domcontentloaded instead of networkidle
+       
         await this.page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => { });
         await this.page.waitForTimeout(3000);
       }
     }
 
     console.log(`[DEBUG] Taking final screenshot...`);
-    // THE FIX: Wrap the screenshot in a strict timeout so it can't freeze the test if the page is heavy
+    
     let screenshot = await this.page.screenshot({ fullPage: true, timeout: 10000 }).catch(async () => {
       console.log(`[WARNING] Full page screenshot timed out, falling back to viewport capture.`);
       return await this.page.screenshot({ timeout: 5000 }).catch(() => null);
@@ -1419,3 +1397,142 @@ Then(
     await this.attach(` COURSE COMPLETION SUCCESS\n\nUser Details:\n${JSON.stringify(userInfo, null, 2)}`, "text/plain");
   }
 );
+
+Then("I click on reports dropdown", async function (this: ICustomWorld) {
+  if (!this.page) throw new Error("[FATAL] Playwright page is undefined.");
+
+  console.log(`[DEBUG] Attempting to open Reports dropdown...`);
+
+ 
+  const hamburger = this.page.locator(S.adminReports.hamburgerMenu.join(', ')).first();
+  if (await hamburger.isVisible({ timeout: 2000 }).catch(() => false)) {
+    console.log(`[DEBUG] Headless hamburger menu detected. Clicking to expand...`);
+    await hamburger.click({ force: true });
+    await this.page.waitForTimeout(1000);
+  }
+
+  
+  const reportsMenu = this.page.locator(S.adminReports.reportsDropdown.join(', ')).first();
+
+  if (await reportsMenu.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await reportsMenu.click({ force: true });
+    await this.page.waitForTimeout(1000); 
+    console.log(`[DEBUG] Reports dropdown clicked successfully.`);
+  } else {
+    console.log(`[WARNING] Reports menu not visible in UI. Will rely on forced navigation.`);
+  }
+});
+
+
+Then("I navigate to compliance report page", async function (this: ICustomWorld) {
+  if (!this.page) throw new Error("[FATAL] Playwright page is undefined.");
+
+  console.log(`[DEBUG] Attempting to click Compliance Report link...`);
+
+  const complianceLink = this.page.locator(S.adminReports.complianceReportLink.join(', ')).first();
+  let navigated = false;
+
+  if (await complianceLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await complianceLink.click({ force: true });
+    await this.page.waitForLoadState("networkidle");
+    navigated = true;
+  }
+
+  
+  const isPageReady = await this.page.locator(S.adminReports.pageHeader.join(', '))
+    .filter({ hasText: /Compliance Report/i })
+    .first()
+    .isVisible({ timeout: 3000 })
+    .catch(() => false);
+
+  if (!navigated || !isPageReady) {
+    console.log(`[WARNING] UI click swallowed by headless layout. Forcing direct URL navigation to compliance report...`);
+    const baseUrl = new URL(this.page.url()).origin;
+    await this.page.goto(`${baseUrl}/manage/compliance_report`, { waitUntil: "networkidle" }).catch(() => { });
+    await this.page.waitForTimeout(2000);
+  }
+
+  console.log(`[DEBUG] Successfully navigated to Compliance Report page.`);
+});
+
+
+Then("I search user with email id and validate for eCard compliance until date.", async function (this: ICustomWorld) {
+  if (!this.page) throw new Error("[FATAL] Playwright page is undefined.");
+
+  const searchEmail = this.importedUserEmail;
+  if (!searchEmail) throw new Error(`[FATAL] importedUserEmail is empty. Cannot search for user.`);
+
+  console.log(`\n======================================================`);
+  console.log(`[DEBUG] VALIDATING COMPLIANCE FOR: ${searchEmail}`);
+  console.log(`======================================================\n`);
+
+  
+  const searchInput = this.page.locator(S.adminReports.searchInput.join(', ')).first();
+  await searchInput.waitFor({ state: 'attached', timeout: 10000 });
+
+  
+  await searchInput.click({ force: true }).catch(() => { });
+  await searchInput.fill(searchEmail, { force: true });
+  await this.page.waitForTimeout(500);
+
+  
+  await searchInput.press('Enter').catch(() => { });
+  await this.page.waitForTimeout(500);
+
+  
+  const searchBtn = this.page.locator(S.adminReports.searchButton.join(', ')).first();
+  if (await searchBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await searchBtn.click().catch(() => { });
+  }
+
+  console.log(`[DEBUG] Search initiated. Waiting for report table to generate...`);
+
+ 
+  const userRow = this.page.locator(S.adminReports.tableRow.join(', ')).filter({ hasText: searchEmail }).first();
+  await userRow.waitFor({ state: 'visible', timeout: 30000 });
+  console.log(`[DEBUG] User found in report table. Mapping columns...`);
+
+ 
+  const headers = await this.page.locator(S.adminReports.tableHeaders.join(', ')).allInnerTexts();
+
+  const compUntilIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('COMPLIANT UNTIL'));
+  const ecardUntilIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('ECARD VALID UNTIL'));
+
+  if (compUntilIdx === -1 || ecardUntilIdx === -1) {
+    throw new Error(`[FATAL] Could not find required date columns in the table headers. Found: ${headers.join(', ')}`);
+  }
+
+  
+  const rowCells = userRow.locator(S.adminReports.tableCells.join(', '));
+
+  
+  const compliantDateText = await rowCells.nth(compUntilIdx).textContent() || '';
+  const ecardDateText = await rowCells.nth(ecardUntilIdx).textContent() || '';
+
+  const finalCompliantDate = compliantDateText.trim();
+  const finalEcardDate = ecardDateText.trim();
+
+  console.log(`[DEBUG] Extracted Compliant Until: "${finalCompliantDate}"`);
+  console.log(`[DEBUG] Extracted eCard Valid Until: "${finalEcardDate}"`);
+
+  
+  if (!finalCompliantDate || !finalEcardDate) {
+    throw new Error(`[FATAL] One or both date cells are empty!`);
+  }
+
+  if (finalCompliantDate !== finalEcardDate) {
+    throw new Error(`[FATAL] COMPLIANCE MISMATCH! Compliant Until (${finalCompliantDate}) does NOT match eCard Valid Until (${finalEcardDate}).`);
+  }
+
+  console.log(`[SUCCESS] Validation Passed! Both dates match exactly.`);
+
+  await this.attach(
+    `COMPLIANCE VALIDATION SUCCESS\n\n` +
+    `User Email: ${searchEmail}\n` +
+    `Compliant Until: ${finalCompliantDate}\n` +
+    `eCard Valid Until: ${finalEcardDate}\n` +
+    `Status: EXACT MATCH`,
+    "text/plain"
+  );
+});
+

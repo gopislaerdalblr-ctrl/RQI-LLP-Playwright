@@ -571,6 +571,17 @@ export const S = {
     evaluationBtn: ['a:has-text("EVALUATION")', 'button:has-text("EVALUATION")', 'div.step-item:has-text("Evaluation") button', 'a:has-text("Evaluation")'],
     evalTextAreas: ['textarea', 'input[type="text"].eval-text'],
     submitEvalBtn: ['button:has-text("Submit")', 'input[value="Submit"]', 'button:has-text("Save")']
+  },
+  adminReports: {
+    hamburgerMenu: ['.navbar-toggler', '.hamburger-menu', 'button[aria-label="Toggle navigation"]'],
+    reportsDropdown: ['a:text-is("Reports")', 'button:text-is("Reports")', 'a:has-text("Reports")'],
+    complianceReportLink: ['a:text-is("Compliance Report")', 'a:has-text("Compliance Report")'],
+    pageHeader: ['h1', 'h2', 'h3', '.page-title'],
+    searchInput: ['#searchbox_name_email', 'input[placeholder*="Search for Name"]', 'input[placeholder*="User ID"]'],
+    searchButton: ['#searchbtn', '.search_submit', 'button:text-is("Search")'], // text-is prevents it from clicking "Clear Search"
+    tableRow: ['.dataTables_scrollBody tbody tr', '#reports tbody tr'],
+    tableHeaders: ['.dataTables_scrollHeadInner thead th', '#reports_wrapper thead th'],
+    tableCells: ['td']
   }
 
 } as const;

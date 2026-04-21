@@ -798,5 +798,37 @@
         "User last name": "auto_last_17766868918610512",
         "Course Assigned to user": "RQI® BLS Provider - Perpetual",
         "Instance": "maurya"
+    },
+    {
+        "orgid": "2000229",
+        "User email": "auto_first_17767452991920399@rqimail.laerdalblr.in",
+        "User first name": "auto_first_17767452991920399",
+        "User last name": "auto_last_17767452991920399",
+        "Course Assigned to user": "RQI® BLS Provider - Perpetual",
+        "Instance": "maurya"
+    },
+    {
+        "orgid": "2000229",
+        "User email": "auto_first_17767463032530393@rqimail.laerdalblr.in",
+        "User first name": "auto_first_17767463032530393",
+        "User last name": "auto_last_17767463032530393",
+        "Course Assigned to user": "RQI® BLS Provider - Perpetual",
+        "Instance": "maurya"
+    },
+    {
+        "orgid": "2000147",
+        "User email": "auto_first_177674789522400@rqimail.laerdalblr.in",
+        "User first name": "auto_first_177674789522400",
+        "User last name": "auto_last_177674789522400",
+        "Course Assigned to user": "RQI® BLS Provider - Perpetual",
+        "Instance": "maurya"
+    },
+    {
+        "orgid": "2000147",
+        "User email": "auto_first_17767486170480901@rqimail.laerdalblr.in",
+        "User first name": "auto_first_17767486170480901",
+        "User last name": "auto_last_17767486170480901",
+        "Course Assigned to user": "HeartCode® BLS Complete",
+        "Instance": "maurya"
     }
 ]

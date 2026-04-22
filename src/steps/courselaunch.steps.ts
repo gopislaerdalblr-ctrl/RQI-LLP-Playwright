@@ -536,7 +536,7 @@ Then(
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
-    
+
     const courseName = (this as any)[courseIdentifier] || courseIdentifier;
 
     if (!courseName) {
@@ -558,7 +558,7 @@ Then(
     await this.page.waitForLoadState("networkidle");
     await this.page.waitForTimeout(2000);
 
-   
+
     const getExactCourseRow = async () => {
       const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
       await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
@@ -579,17 +579,17 @@ Then(
             const t = await titleElements.nth(j).innerText();
             const normalizedActual = t.replace(/\s+/g, ' ').trim();
 
-            
+
             if (normalizedActual.includes(normalizedTarget)) {
               hasTargetCourse = true;
             }
-            
+
             else if (normalizedActual.length > 5 && !normalizedActual.toLowerCase().includes('new')) {
               hasOtherCourses = true;
             }
           }
 
-          
+
           if (hasTargetCourse && !hasOtherCourses) {
             return row;
           }
@@ -603,7 +603,7 @@ Then(
     await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
     console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
 
-    
+
     let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
@@ -643,7 +643,7 @@ Then(
       console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-    
+
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
       await dateInputLocator.click({ force: true });
@@ -850,7 +850,7 @@ Then(
     const screenshot = await this.page.screenshot({ fullPage: true });
     await this.attach(screenshot, "image/png");
 
-    
+
     const userInfo = {
       "orgid": this.activeOrgId || this.instance?.orgId || "UNKNOWN_ORG",
       "Instance": this.instance?.env || "UNKNOWN",
@@ -876,7 +876,7 @@ Then(
     const nameKey = `courseName${suffix}`;
     const resolvedCourseName = (courseCfg[nameKey] || courseCfg["courseName"] || "").trim();
 
-   
+
     (this as any)[courseKey] = resolvedCourseName;
     this.assignedCourseName = resolvedCourseName;
 
@@ -948,7 +948,7 @@ Then(
     await fillIfPresent(this, S.adminLogin.AssignmentTitleInput, uniqueTitle);
     await this.page.waitForTimeout(1000);
 
-    
+
 
     const nextClicked = await clickIfPresent(this, S.adminLogin.AssignmentNextButton);
     if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
@@ -1015,7 +1015,7 @@ Then(
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
-    
+
     const courseName = (this as any)[courseIdentifier] || courseIdentifier;
 
     if (!courseName) {
@@ -1036,7 +1036,7 @@ Then(
     await this.page.bringToFront();
     await this.page.waitForLoadState("domcontentloaded");
 
-    
+
     console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
 
     const closeModal = this.page.locator('button.close, .modal-header button, button:has-text("Close")').first();
@@ -1093,7 +1093,7 @@ Then(
       await this.page.waitForTimeout(3000);
     }
 
-    
+
     const getExactCourseRow = async () => {
       const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
       await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
@@ -1135,7 +1135,7 @@ Then(
     await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
     console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
 
-    
+
     let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
@@ -1175,7 +1175,7 @@ Then(
       console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-    
+
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -1363,18 +1363,18 @@ Then(
         await fillDateSafely(inlineDateInput);
 
         console.log(`[DEBUG] Clicking SUBMIT on Post-Evaluation Date Picker...`);
-        
+
         await postEvalInlineSubmitBtn.click({ force: true, noWaitAfter: true }).catch(() => { });
 
         console.log(`[DEBUG] Waiting for post-submit redirect to settle...`);
-       
+
         await this.page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => { });
         await this.page.waitForTimeout(3000);
       }
     }
 
     console.log(`[DEBUG] Taking final screenshot...`);
-    
+
     let screenshot = await this.page.screenshot({ fullPage: true, timeout: 10000 }).catch(async () => {
       console.log(`[WARNING] Full page screenshot timed out, falling back to viewport capture.`);
       return await this.page.screenshot({ timeout: 5000 }).catch(() => null);
@@ -1403,7 +1403,7 @@ Then("I click on reports dropdown", async function (this: ICustomWorld) {
 
   console.log(`[DEBUG] Attempting to open Reports dropdown...`);
 
- 
+
   const hamburger = this.page.locator(S.adminReports.hamburgerMenu.join(', ')).first();
   if (await hamburger.isVisible({ timeout: 2000 }).catch(() => false)) {
     console.log(`[DEBUG] Headless hamburger menu detected. Clicking to expand...`);
@@ -1411,12 +1411,12 @@ Then("I click on reports dropdown", async function (this: ICustomWorld) {
     await this.page.waitForTimeout(1000);
   }
 
-  
+
   const reportsMenu = this.page.locator(S.adminReports.reportsDropdown.join(', ')).first();
 
   if (await reportsMenu.isVisible({ timeout: 5000 }).catch(() => false)) {
     await reportsMenu.click({ force: true });
-    await this.page.waitForTimeout(1000); 
+    await this.page.waitForTimeout(1000);
     console.log(`[DEBUG] Reports dropdown clicked successfully.`);
   } else {
     console.log(`[WARNING] Reports menu not visible in UI. Will rely on forced navigation.`);
@@ -1438,7 +1438,7 @@ Then("I navigate to compliance report page", async function (this: ICustomWorld)
     navigated = true;
   }
 
-  
+
   const isPageReady = await this.page.locator(S.adminReports.pageHeader.join(', '))
     .filter({ hasText: /Compliance Report/i })
     .first()
@@ -1466,20 +1466,20 @@ Then("I search user with email id and validate for eCard compliance until date."
   console.log(`[DEBUG] VALIDATING COMPLIANCE FOR: ${searchEmail}`);
   console.log(`======================================================\n`);
 
-  
+
   const searchInput = this.page.locator(S.adminReports.searchInput.join(', ')).first();
   await searchInput.waitFor({ state: 'attached', timeout: 10000 });
 
-  
+
   await searchInput.click({ force: true }).catch(() => { });
   await searchInput.fill(searchEmail, { force: true });
   await this.page.waitForTimeout(500);
 
-  
+
   await searchInput.press('Enter').catch(() => { });
   await this.page.waitForTimeout(500);
 
-  
+
   const searchBtn = this.page.locator(S.adminReports.searchButton.join(', ')).first();
   if (await searchBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
     await searchBtn.click().catch(() => { });
@@ -1487,35 +1487,50 @@ Then("I search user with email id and validate for eCard compliance until date."
 
   console.log(`[DEBUG] Search initiated. Waiting for report table to generate...`);
 
- 
+
   const userRow = this.page.locator(S.adminReports.tableRow.join(', ')).filter({ hasText: searchEmail }).first();
   await userRow.waitFor({ state: 'visible', timeout: 30000 });
   console.log(`[DEBUG] User found in report table. Mapping columns...`);
 
- 
+
   const headers = await this.page.locator(S.adminReports.tableHeaders.join(', ')).allInnerTexts();
 
   const compUntilIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('COMPLIANT UNTIL'));
   const ecardUntilIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('ECARD VALID UNTIL'));
 
-  if (compUntilIdx === -1 || ecardUntilIdx === -1) {
-    throw new Error(`[FATAL] Could not find required date columns in the table headers. Found: ${headers.join(', ')}`);
+
+  const statusIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('COMPLIANCE STATUS'));
+  const lastActivityIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('LAST ACTIVITY'));
+  const completionDateIdx = headers.findIndex((h: string) => h.trim().toUpperCase().includes('COMPLETION DATE'));
+
+  if (compUntilIdx === -1 || ecardUntilIdx === -1 || statusIdx === -1 || lastActivityIdx === -1 || completionDateIdx === -1) {
+    throw new Error(`[FATAL] Could not find all required columns in the table headers. Found: ${headers.join(', ')}`);
   }
 
-  
+
   const rowCells = userRow.locator(S.adminReports.tableCells.join(', '));
 
-  
   const compliantDateText = await rowCells.nth(compUntilIdx).textContent() || '';
   const ecardDateText = await rowCells.nth(ecardUntilIdx).textContent() || '';
 
+
+  const statusText = await rowCells.nth(statusIdx).textContent() || '';
+  const lastActivityText = await rowCells.nth(lastActivityIdx).textContent() || '';
+  const completionDateText = await rowCells.nth(completionDateIdx).textContent() || '';
+
   const finalCompliantDate = compliantDateText.trim();
   const finalEcardDate = ecardDateText.trim();
+  const finalStatus = statusText.trim();
+  const finalLastActivity = lastActivityText.trim();
+  const finalCompletionDate = completionDateText.trim();
 
+  console.log(`[DEBUG] Extracted Compliance Status: "${finalStatus}"`);
   console.log(`[DEBUG] Extracted Compliant Until: "${finalCompliantDate}"`);
   console.log(`[DEBUG] Extracted eCard Valid Until: "${finalEcardDate}"`);
+  console.log(`[DEBUG] Extracted Last Activity: "${finalLastActivity}"`);
+  console.log(`[DEBUG] Extracted Completion Date: "${finalCompletionDate}"`);
 
-  
+
   if (!finalCompliantDate || !finalEcardDate) {
     throw new Error(`[FATAL] One or both date cells are empty!`);
   }
@@ -1526,13 +1541,16 @@ Then("I search user with email id and validate for eCard compliance until date."
 
   console.log(`[SUCCESS] Validation Passed! Both dates match exactly.`);
 
+
   await this.attach(
     `COMPLIANCE VALIDATION SUCCESS\n\n` +
     `User Email: ${searchEmail}\n` +
-    `Compliant Until: ${finalCompliantDate}\n` +
-    `eCard Valid Until: ${finalEcardDate}\n` +
-    `Status: EXACT MATCH`,
+    `Compliance Status: ${finalStatus}\n` +
+    `Last Activity Date: ${finalLastActivity}\n` +
+    `Completion Date: ${finalCompletionDate}\n` +
+    `Compliant Until Date: ${finalCompliantDate}\n` +
+    `eCard Valid Until Date: ${finalEcardDate}\n` +
+    `Validation Status: EXACT MATCH`,
     "text/plain"
   );
 });
-

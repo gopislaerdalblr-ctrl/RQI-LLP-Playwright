@@ -83,6 +83,29 @@ function clearStaleLocks() {
 
 BeforeAll(() => {
   clearStaleLocks();
+
+  const tmpDir = path.resolve("reports/_tmp");
+  const lockDir = path.resolve("reports/_tmp/.cleanup.lock");
+
+  if (fs.existsSync(tmpDir)) {
+    try {
+      fs.mkdirSync(lockDir);
+      console.log("\n[SETUP] Worker acquired lock. Cleaning up old _tmp artifacts...");
+      const subdirsToClean = ["videos", "screenshots", "downloads", "logs"];
+      for (const dir of subdirsToClean) {
+        const fullPath = path.join(tmpDir, dir);
+        if (fs.existsSync(fullPath)) {
+          try {
+            fs.rmSync(fullPath, { recursive: true, force: true });
+          } catch (e) {
+            console.warn(`[SETUP] Could not delete ${fullPath} due to a lock: ${(e as Error).message}`);
+          }
+        }
+      }
+    } catch (e: any) {
+      // EEXIST means another worker already grabbed the lock and is cleaning. Safe to ignore.
+    }
+  }
 });
 
 export function getZimbraCredentials() {
@@ -379,19 +402,23 @@ Before(async function (this: ICustomWorld, scenario) {
 After(async function (this: ICustomWorld, scenario) {
   const scenarioName = scenario.pickle.name;
 
-  if (scenario.result?.status === Status.FAILED && this.page) {
-    if (!this._failedStepScreenshotCaptured) {
-      const tmpShotsDir = path.resolve("reports/_tmp/screenshots");
-      ensureDir(tmpShotsDir);
-      const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}_${safeFilePart(scenarioName)}.png`;
-      const fullPath = path.join(tmpShotsDir, fileName);
+  if (this.page) {
+    const tmpShotsDir = path.resolve("reports/_tmp/screenshots");
+    ensureDir(tmpShotsDir);
+    const fileName = `${new Date().toISOString().replace(/[:.]/g, "-")}_${safeFilePart(scenarioName)}.png`;
+    const fullPath = path.join(tmpShotsDir, fileName);
+    
+    try {
       await this.page.screenshot({ path: fullPath, fullPage: true });
-
       const buf = await fs.promises.readFile(fullPath);
       await this.attach(buf, "image/png");
       await this.attach(`URL: ${this.page.url()}`, "text/plain");
+    } catch (e) {
+      console.error(`\n[HOOKS] ⚠️ Failed to capture final screenshot: ${(e as Error).message}`);
     }
+  }
 
+  if (scenario.result?.status === Status.FAILED && this.page) {
     const uniqueErrors = await captureUIErrors(this.page);
     if (uniqueErrors.length > 0) {
       const errorMsg = `🚨 UI ERROR DETECTED ON FAILURE:\n${uniqueErrors.join("\n")}`;
@@ -480,52 +507,55 @@ Timestamp: ${new Date().toISOString()}
   const runName = meta?.generatedAt
     ? formatRunNameFromIso(meta.generatedAt)
     : formatRunNameFromIso(new Date().toISOString());
-  const tmpLogsDir = path.resolve("reports/_tmp/logs");
-  ensureDir(tmpLogsDir);
   const safeScenario = safeFilePart(scenarioName);
-  const baseFile = `${runName}__${safeScenario}`;
 
-  const consoleFileTmp = path.join(tmpLogsDir, `${baseFile}__console.log`);
-  const pageErrFileTmp = path.join(tmpLogsDir, `${baseFile}__pageerrors.log`);
-  const netFileTmp = path.join(tmpLogsDir, `${baseFile}__network.log`);
-  const netJsonFileTmp = path.join(tmpLogsDir, `${baseFile}__network.json`);
+  if (scenario.result?.status === Status.FAILED) {
+    const tmpLogsDir = path.resolve("reports/_tmp/logs");
+    ensureDir(tmpLogsDir);
+    const baseFile = `${runName}__${safeScenario}`;
 
-  const consoleText = this.consoleLogs?.length
-    ? this.consoleLogs.join("\n")
-    : "No console logs captured.";
-  writeTextFile(consoleFileTmp, consoleText);
+    const consoleFileTmp = path.join(tmpLogsDir, `${baseFile}__console.log`);
+    const pageErrFileTmp = path.join(tmpLogsDir, `${baseFile}__pageerrors.log`);
+    const netFileTmp = path.join(tmpLogsDir, `${baseFile}__network.log`);
+    const netJsonFileTmp = path.join(tmpLogsDir, `${baseFile}__network.json`);
 
-  const pageErrors: string[] = this.pageErrors || [];
-  const pageErrorsText = pageErrors.length
-    ? pageErrors.join("\n")
-    : "No page errors captured.";
-  writeTextFile(pageErrFileTmp, pageErrorsText);
+    const consoleText = this.consoleLogs?.length
+      ? this.consoleLogs.join("\n")
+      : "No console logs captured.";
+    writeTextFile(consoleFileTmp, consoleText);
 
-  const netLogs: NetEntry[] = this.netLogs || [];
-  let netText = "No network logs captured.";
-  if (netLogs.length) {
-    const lines: string[] = [];
-    lines.push("========== NETWORK LOGS ==========");
-    for (const e of netLogs) {
-      if (e.type === "request") {
-        lines.push(
-          `[${e.ts}] [REQ] ${e.method} ${e.url} (${e.resourceType || ""})`,
-        );
-      } else if (e.type === "response") {
-        lines.push(
-          `[${e.ts}] [RES] ${e.method} ${e.url} -> ${e.status} ${e.statusText || ""} (${e.resourceType || ""}) ${typeof e.timingMs === "number" ? `(${e.timingMs}ms)` : ""}`,
-        );
-      } else {
-        lines.push(
-          `[${e.ts}] [FAIL] ${e.method} ${e.url} (${e.resourceType || ""}) :: ${e.errorText || ""}`,
-        );
+    const pageErrors: string[] = this.pageErrors || [];
+    const pageErrorsText = pageErrors.length
+      ? pageErrors.join("\n")
+      : "No page errors captured.";
+    writeTextFile(pageErrFileTmp, pageErrorsText);
+
+    const netLogs: NetEntry[] = this.netLogs || [];
+    let netText = "No network logs captured.";
+    if (netLogs.length) {
+      const lines: string[] = [];
+      lines.push("========== NETWORK LOGS ==========");
+      for (const e of netLogs) {
+        if (e.type === "request") {
+          lines.push(
+            `[${e.ts}] [REQ] ${e.method} ${e.url} (${e.resourceType || ""})`,
+          );
+        } else if (e.type === "response") {
+          lines.push(
+            `[${e.ts}] [RES] ${e.method} ${e.url} -> ${e.status} ${e.statusText || ""} (${e.resourceType || ""}) ${typeof e.timingMs === "number" ? `(${e.timingMs}ms)` : ""}`,
+          );
+        } else {
+          lines.push(
+            `[${e.ts}] [FAIL] ${e.method} ${e.url} (${e.resourceType || ""}) :: ${e.errorText || ""}`,
+          );
+        }
       }
+      lines.push("==================================");
+      netText = lines.join("\n");
     }
-    lines.push("==================================");
-    netText = lines.join("\n");
+    writeTextFile(netFileTmp, netText);
+    writeTextFile(netJsonFileTmp, JSON.stringify(netLogs, null, 2));
   }
-  writeTextFile(netFileTmp, netText);
-  writeTextFile(netJsonFileTmp, JSON.stringify(netLogs, null, 2));
 
   await this.moodlePage?.close().catch(() => { });
   await this.page?.close().catch(() => { });
@@ -536,22 +566,30 @@ Timestamp: ${new Date().toISOString()}
     try {
       const originalPath = await videoPathPromise;
       if (fs.existsSync(originalPath)) {
-        const videosDir = path.resolve("reports/_tmp/videos");
-        ensureDir(videosDir);
-        const newFileName = `${runName}__${safeFilePart(scenarioName)}.webm`;
-        const newPath = path.join(videosDir, newFileName);
+        if (scenario.result?.status === Status.FAILED) {
+          const videosDir = path.resolve("reports/_tmp/videos");
+          ensureDir(videosDir);
+          const newFileName = `${runName}__${safeFilePart(scenarioName)}.webm`;
+          const newPath = path.join(videosDir, newFileName);
 
-        try {
-          if (fs.existsSync(newPath)) fs.rmSync(newPath, { force: true });
-          fs.renameSync(originalPath, newPath);
-        } catch (e) {
-          fs.copyFileSync(originalPath, newPath);
-          fs.unlinkSync(originalPath);
+          try {
+            if (fs.existsSync(newPath)) fs.rmSync(newPath, { force: true });
+            fs.renameSync(originalPath, newPath);
+          } catch (e) {
+            fs.copyFileSync(originalPath, newPath);
+            fs.unlinkSync(originalPath);
+          }
+
+          const videoBuf = await fs.promises.readFile(newPath);
+          await this.attach(videoBuf, "video/webm");
+          await this.attach(`🎥 Video: ${newFileName}`, "text/plain");
+        } else {
+          try {
+            fs.unlinkSync(originalPath);
+          } catch (e) {
+            console.warn(`[HOOKS] ⚠️ Could not delete video for passed scenario: ${(e as Error).message}`);
+          }
         }
-
-        const videoBuf = await fs.promises.readFile(newPath);
-        await this.attach(videoBuf, "video/webm");
-        await this.attach(`🎥 Video: ${newFileName}`, "text/plain");
       }
     } catch (e) {
       await this.attach(
@@ -561,22 +599,31 @@ Timestamp: ${new Date().toISOString()}
     }
   }
 
-  const summary: string[] = [];
-  summary.push("📋 LOG FILES (Available locally)");
-  summary.push("────────────────────────────────────────────────");
-  summary.push(`📂 Run ID: ${runName}`);
-  summary.push("");
-  summary.push("🔗 Open Local Logs:");
-  summary.push(`  • Console    : ${toFileUrl(consoleFileTmp)}`);
-  summary.push(`  • PageErrors : ${toFileUrl(pageErrFileTmp)}`);
-  summary.push(`  • Network    : ${toFileUrl(netFileTmp)}`);
-  summary.push(`  • NetworkJS  : ${toFileUrl(netJsonFileTmp)}`);
-  summary.push("");
-  summary.push("📝 Local Paths:");
-  summary.push(`  • ${consoleFileTmp}`);
-  summary.push("────────────────────────────────────────────────");
+  if (scenario.result?.status === Status.FAILED) {
+    const tmpLogsDir = path.resolve("reports/_tmp/logs");
+    const baseFile = `${runName}__${safeScenario}`;
+    const consoleFileTmp = path.join(tmpLogsDir, `${baseFile}__console.log`);
+    const pageErrFileTmp = path.join(tmpLogsDir, `${baseFile}__pageerrors.log`);
+    const netFileTmp = path.join(tmpLogsDir, `${baseFile}__network.log`);
+    const netJsonFileTmp = path.join(tmpLogsDir, `${baseFile}__network.json`);
 
-  await this.attach(summary.join("\n"), "text/plain");
+    const summary: string[] = [];
+    summary.push("📋 LOG FILES (Available locally)");
+    summary.push("────────────────────────────────────────────────");
+    summary.push(`📂 Run ID: ${runName}`);
+    summary.push("");
+    summary.push("🔗 Open Local Logs:");
+    summary.push(`  • Console    : ${toFileUrl(consoleFileTmp)}`);
+    summary.push(`  • PageErrors : ${toFileUrl(pageErrFileTmp)}`);
+    summary.push(`  • Network    : ${toFileUrl(netFileTmp)}`);
+    summary.push(`  • NetworkJS  : ${toFileUrl(netJsonFileTmp)}`);
+    summary.push("");
+    summary.push("📝 Local Paths:");
+    summary.push(`  • ${consoleFileTmp}`);
+    summary.push("────────────────────────────────────────────────");
+
+    await this.attach(summary.join("\n"), "text/plain");
+  }
 
   if (this.heal?.enabled)
     await this.attach(`Healwright enabled: ${this.heal.enabled}`, "text/plain");

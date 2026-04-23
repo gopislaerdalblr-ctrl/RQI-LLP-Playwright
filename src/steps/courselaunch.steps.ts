@@ -54,14 +54,11 @@ Then(
     console.log(`[DEBUG] Attempting to click the initial Create Assignment button...`);
     let createBtnFound = false;
 
-
     for (const sel of S.adminLogin.CreateAssignment) {
       try {
         const btn = this.page.locator(sel).first();
 
-
         await btn.waitFor({ state: "attached", timeout: 5000 });
-
 
         await btn.evaluate((el: HTMLElement) => el.click());
         createBtnFound = true;
@@ -167,15 +164,19 @@ Then(
     if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
     await this.page.waitForTimeout(2000);
 
-
     const searchTarget = this.importedUserEmail;
     if (!searchTarget) {
       throw new Error("[FATAL] No imported user email found in context.");
     }
 
+    // =========================================================================
+    // 1. DYNAMIC PARTITIONED LOCK (No more global waiting)
+    // =========================================================================
+    const safeIdentifier = searchTarget.replace(/[^a-zA-Z0-9]/g, '_');
+    const dynamicLockName = `assignment_creation_${safeIdentifier}`;
 
-    console.log(`\n[DEBUG] Waiting for backend clearance to add learners...`);
-    await acquireLock('assignment_creation');
+    console.log(`\n[DEBUG] Waiting for backend clearance on dynamic lock: ${dynamicLockName}...`);
+    await acquireLock(dynamicLockName);
 
     try {
       const addLearnerClicked = await clickIfPresent(this, S.adminLogin.AddLearnerButton);
@@ -190,39 +191,86 @@ Then(
       await searchResult.click({ force: true }).catch(() => { });
       await this.page.waitForTimeout(1000);
 
-      await this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last().click({ force: true }).catch(() => { });
-      await this.page.waitForTimeout(5000);
+      const confirmAddBtn = this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last();
+      await confirmAddBtn.click({ force: true }).catch(() => { });
 
+      // =========================================================================
+      // 2. BULLETPROOF LEARNER TABLE VERIFICATION
+      // =========================================================================
+      console.log(`[DEBUG] Waiting for modal to close and learner to populate in the background table...`);
+
+      // A. Wait for the modal to physically close
+      await confirmAddBtn.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {
+        console.log("[WARNING] Modal might still be closing. Proceeding with caution.");
+      });
+
+      // B. Wait for the "No Students are available." text to DISAPPEAR
+      const emptyStateText = this.page.getByText("No Students are available.", { exact: true });
+      await emptyStateText.waitFor({ state: "hidden", timeout: 20000 }).catch(() => {
+        console.log("[WARNING] 'No Students' text didn't hide. The backend might be slow or failed to link the user.");
+      });
+
+      // C. Verify a real row exists in the table body before clicking create
+      const populatedRow = this.page.locator('tbody tr').filter({ hasNotText: "No Students are available." }).first();
+      const isLearnerAdded = await populatedRow.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+
+      if (!isLearnerAdded) {
+        throw new Error(`[FATAL] Learner addition failed! Modal closed, but the background table never populated with the user data.`);
+      }
+
+      console.log(`[DEBUG] Learner data physically rendered in the table! Safe to click Create Assignment.`);
+      await this.page.waitForTimeout(1500);
+
+      // =========================================================================
+      // 3. BULLETPROOF PROMISE.ALL RACE + RETRY LOOP (No networkidle traps)
+      // =========================================================================
       console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
       const createBtn = this.page.locator(S.adminLogin.CreateAssignmentButton.join(', ')).first();
-
-
-      await createBtn.click({ force: true }).catch(() => {
-        console.log("[WARNING] Playwright click event interrupted, likely due to instant DOM refresh.");
-      });
-
-      console.log(`[DEBUG] Waiting for success banner...`);
-
-
       const successBanner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', ')).first();
 
+      let bannerFound = false;
 
-      await successBanner.waitFor({ state: "visible", timeout: 15000 }).catch(() => {
-        console.log("[WARNING] Success banner not visible within 15s. Checking if assignment saved anyway.");
-      });
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`[DEBUG] Create Assignment Attempt ${attempt}/3...`);
 
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(3000);
+        if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
 
+          const bannerWait = successBanner.waitFor({ state: "visible", timeout: 15000 })
+            .then(() => true)
+            .catch(() => false);
 
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(3000);
+          await createBtn.click({ force: true }).catch(() => { });
+          bannerFound = await bannerWait;
+
+          if (bannerFound) {
+            console.log(`[DEBUG] Success banner safely captured on attempt ${attempt}!`);
+            break;
+          } else {
+            console.log(`[WARNING] Banner didn't trigger on attempt ${attempt}. Retrying...`);
+            await this.page.waitForTimeout(2000);
+          }
+
+        } else {
+          console.log(`[DEBUG] Create button no longer visible. Form likely submitted successfully.`);
+          break;
+        }
+      }
+
+      if (!bannerFound) {
+        const btnStillThere = await createBtn.isVisible({ timeout: 2000 }).catch(() => false);
+        if (btnStillThere) {
+          throw new Error("[FATAL] Failed to create assignment. Success banner never appeared and button remains.");
+        } else {
+          console.log(`[DEBUG] Assuming success: Banner missed, but button disappeared.`);
+        }
+      }
+
+      await this.page.waitForTimeout(2000);
 
     } finally {
-
-      releaseLock('assignment_creation');
+      // 4. RELEASE THE EXACT SAME DYNAMIC LOCK
+      releaseLock(dynamicLockName);
     }
-
 
     await this.attach(`Successfully created manual Assignment: ${uniqueTitle} for user: ${searchTarget}`, "text/plain");
   }

@@ -39,15 +39,15 @@ Then(
       } else if (isCourseKey) {
         const resolvedCourseId = String(
           (courseCfg as any)[key] ??
-            (courseCfg as any)[key.toLowerCase()] ??
-            "",
+          (courseCfg as any)[key.toLowerCase()] ??
+          "",
         ).trim();
         const suffix = key.match(/^courseid(\d+)?$/i)?.[1] || "";
         const nameKey = `courseName${suffix}`;
         const resolvedCourseName = String(
           (courseCfg as any)[nameKey] ??
-            (courseCfg as any)[nameKey.toLowerCase()] ??
-            "",
+          (courseCfg as any)[nameKey.toLowerCase()] ??
+          "",
         ).trim();
         courseId = resolvedCourseId || key;
         courseName = resolvedCourseName || defaultCourseName;
@@ -147,7 +147,7 @@ Then(
       );
       if (!addLinkClicked) throw new Error("Add Product link not found.");
 
-      await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+      await this.page.waitForLoadState("domcontentloaded").catch(() => { });
       await expect(this.page.locator(S.adminLogin.orgProducts.submitAddProduct.join(', '))).toBeVisible({
         timeout: 15000,
       });
@@ -210,7 +210,7 @@ Then(
       if (flashVisible)
         flashText = (await flashLocator.first().innerText()).trim();
 
-      await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+      await this.page.waitForLoadState("domcontentloaded").catch(() => { });
       await this.page.waitForTimeout(1000);
       await attachCombinedReportBlock(
         `Course added: ${courseId} (${courseName})`,
@@ -234,8 +234,8 @@ Then(
     if (!count || count <= 0)
       throw new Error(`Invalid student count: ${count}`);
 
-    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
-    await this.page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+    await this.page.waitForLoadState("domcontentloaded").catch(() => { });
+    await this.page.evaluate(() => window.scrollTo(0, 0)).catch(() => { });
     await this.page.waitForTimeout(300);
 
     let importClicked = await clickIfPresent(
@@ -260,7 +260,7 @@ Then(
         await importBtnByRole
           .first()
           .scrollIntoViewIfNeeded()
-          .catch(() => {});
+          .catch(() => { });
         await importBtnByRole.first().click();
         importClicked = true;
       } else if (
@@ -272,7 +272,7 @@ Then(
         await importLinkByRole
           .first()
           .scrollIntoViewIfNeeded()
-          .catch(() => {});
+          .catch(() => { });
         await importLinkByRole.first().click();
         importClicked = true;
       }
@@ -286,7 +286,7 @@ Then(
       throw new Error("Import Demographic Data button not found.");
     }
 
-    await this.page.waitForLoadState("domcontentloaded").catch(() => {});
+    await this.page.waitForLoadState("domcontentloaded").catch(() => { });
     await this.page.waitForTimeout(500);
 
     const downloadsDir = path.resolve("reports/_tmp/downloads");
@@ -310,7 +310,7 @@ Then(
             await downloadLinkByRole
               .first()
               .scrollIntoViewIfNeeded()
-              .catch(() => {});
+              .catch(() => { });
             await downloadLinkByRole.first().click();
             return;
           }
@@ -327,7 +327,7 @@ Then(
               await anyCsvLink
                 .first()
                 .scrollIntoViewIfNeeded()
-                .catch(() => {});
+                .catch(() => { });
               await anyCsvLink.first().click();
               return;
             }
@@ -347,10 +347,10 @@ Then(
         .catch(() => []);
       await this.attach(
         `❌ Download template link not found.\nURL: ${this.page.url()}\n\nLinks on page:\n` +
-          links
-            .filter(Boolean)
-            .map((t: string) => `- ${t}`)
-            .join("\n"),
+        links
+          .filter(Boolean)
+          .map((t: string) => `- ${t}`)
+          .join("\n"),
         "text/plain",
       );
       throw new Error("Download template link not found.");
@@ -360,10 +360,14 @@ Then(
       String(process.env.RUN_NAME || process.env.REPORT_NAME || "").trim() ||
       new Date().toISOString().replace(/[:.]/g, "-");
     const suggested = templateDownload.suggestedFilename?.() || "template.csv";
-    const templatePath = path.join(downloadsDir, `${runName}__${suggested}`);
+
+    // Create a unique template path for THIS specific worker thread to avoid collision
+    const uniqueThreadId = `${process.pid}_${Math.floor(Math.random() * 100000)}`;
+    const templatePath = path.join(downloadsDir, `${runName}_${uniqueThreadId}_${suggested}`);
+
     await templateDownload.saveAs(templatePath);
 
-    await this.page.waitForLoadState("networkidle").catch(() => {});
+    await this.page.waitForLoadState("networkidle").catch(() => { });
     await this.page.waitForTimeout(500);
 
     const templateText = fs.readFileSync(templatePath, "utf-8");
@@ -406,7 +410,12 @@ Then(
       rows.push(buildRowByHeader(headers, values));
     }
 
-    const generatedPath = path.join(downloadsDir, `${runName}__${fileName}`);
+    // =================================================================================
+    // THE FIX: Guarantee file isolation so parallel workers never overwrite each other
+    // =================================================================================
+    const safeFileName = fileName.replace('.csv', '');
+    const generatedPath = path.join(downloadsDir, `${runName}_${safeFileName}_${uniqueThreadId}.csv`);
+
     fs.writeFileSync(generatedPath, rows.join("\n"), "utf-8");
 
     this.importedUserEmail = createdUsers[0].email;
@@ -415,11 +424,11 @@ Then(
 
     await this.attach(
       `✅ Created ${createdUsers.length} users:\n` +
-        createdUsers
-          .map(
-            (u) => `${u.userId} | ${u.firstName} | ${u.lastName} | ${u.email}`,
-          )
-          .join("\n"),
+      createdUsers
+        .map(
+          (u) => `${u.userId} | ${u.firstName} | ${u.lastName} | ${u.email}`,
+        )
+        .join("\n"),
       "text/plain",
     );
 
@@ -474,22 +483,22 @@ Then(
         .catch(() => []);
       await this.attach(
         `❌ Upload button not found.\nURL: ${this.page.url()}\n\nClickable texts found:\n` +
-          btnTexts
-            .filter(Boolean)
-            .map((t: string) => `- ${t.trim()}`)
-            .join("\n"),
+        btnTexts
+          .filter(Boolean)
+          .map((t: string) => `- ${t.trim()}`)
+          .join("\n"),
         "text/plain",
       );
       throw new Error("Upload button not found.");
     }
 
-    await uploadLoc.scrollIntoViewIfNeeded().catch(() => {});
+    await uploadLoc.scrollIntoViewIfNeeded().catch(() => { });
     await this.page.waitForTimeout(300);
     await expect(uploadLoc)
       .toBeEnabled({ timeout: 15000 })
-      .catch(() => {});
+      .catch(() => { });
     await uploadLoc.click().catch(async () => {
-      await uploadLoc.click({ force: true }).catch(() => {});
+      await uploadLoc.click({ force: true }).catch(() => { });
     });
 
     // ==========================================
@@ -530,10 +539,10 @@ Then(
     }
 
     if (await statusCloseBtn.isVisible().catch(() => false)) {
-      await statusCloseBtn.click({ force: true }).catch(() => {});
+      await statusCloseBtn.click({ force: true }).catch(() => { });
       await expect(statusModal)
         .toBeHidden({ timeout: 20000 })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     // Give UI a moment to clear the modal overlay
@@ -560,7 +569,7 @@ Then(
 
     // Select Active
     await statusSelect.selectOption({ label: "Active" }).catch(async () => {
-      await statusSelect.selectOption("Active").catch(() => {});
+      await statusSelect.selectOption("Active").catch(() => { });
     });
 
     await this.page.waitForTimeout(1000); // Crucial wait for UI to unlock after select
@@ -588,7 +597,6 @@ Then(
     }
 
     // Pass 2: The Structural Safety Net (Restored!)
-    // If we can't find it by icon or text, just click the button next to the dropdown
     if (!searchBtnLoc) {
       const btnAfterSelect = statusSelect
         .locator("xpath=following::button[1]")
@@ -605,13 +613,13 @@ Then(
     }
 
     // Click aggressively to bypass overlapping toast messages
-    await searchBtnLoc.scrollIntoViewIfNeeded().catch(() => {});
+    await searchBtnLoc.scrollIntoViewIfNeeded().catch(() => { });
     await searchBtnLoc.dispatchEvent("click").catch(async () => {
-      await searchBtnLoc.click({ force: true }).catch(() => {});
+      await searchBtnLoc.click({ force: true }).catch(() => { });
     });
 
     // Wait for the AJAX call / DataTables render
-    await this.page.waitForLoadState("networkidle").catch(() => {});
+    await this.page.waitForLoadState("networkidle").catch(() => { });
     await this.page.waitForTimeout(2000);
 
     // Validation: Did the empty state disappear?
@@ -620,7 +628,7 @@ Then(
     );
     if (await emptyStateText.isVisible().catch(() => false)) {
       // Retry click if it didn't register
-      await searchBtnLoc.click({ force: true }).catch(() => {});
+      await searchBtnLoc.click({ force: true }).catch(() => { });
       await this.page.waitForTimeout(2000);
     }
 
@@ -644,7 +652,7 @@ Then(
     const tbody = resultsTable.locator("tbody");
     await expect(tbody)
       .toBeVisible({ timeout: 20000 })
-      .catch(() => {});
+      .catch(() => { });
 
     const readCurrentPageUserIds = async (): Promise<Set<string>> => {
       const ids = new Set<string>();
@@ -679,7 +687,7 @@ Then(
 
       if (disabled) return false;
       await nextBtn.click().catch(async () => {
-        await nextBtn.click({ force: true }).catch(() => {});
+        await nextBtn.click({ force: true }).catch(() => { });
       });
       await this.page.waitForTimeout(800);
       return true;
@@ -690,7 +698,7 @@ Then(
       .locator(S.adminLogin.manageStudents.paginationPage1Btn.join(', '))
       .first();
     if ((await page1.count().catch(() => 0)) > 0) {
-      await page1.click().catch(() => {});
+      await page1.click().catch(() => { });
       await this.page.waitForTimeout(500);
     }
 
@@ -711,9 +719,9 @@ Then(
       const snap = (await resultsTable.innerText().catch(() => "")).trim();
       await this.attach(
         `❌ Missing imported users.\nMissing:\n` +
-          missing.map((m) => `- ${m}`).join("\n") +
-          `\n\nTable Snapshot:\n` +
-          snap.slice(0, 1200),
+        missing.map((m) => `- ${m}`).join("\n") +
+        `\n\nTable Snapshot:\n` +
+        snap.slice(0, 1200),
         "text/plain",
       );
       throw new Error(

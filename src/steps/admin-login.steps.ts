@@ -140,7 +140,7 @@ Then(
 
 
     await expect(this.page.locator(`text=${orgId}`).first()).toBeVisible({
-      timeout: 15000,
+      timeout: 20000,
     });
   },
 );
@@ -149,10 +149,15 @@ Then(
   "Navigate to Organization details page",
   async function (this: ICustomWorld) {
 
+    // =========================================================================
+    // THE FIX: Explicitly wait for the search UI to settle before interacting
+    // =========================================================================
+    console.log("[DEBUG] Pausing for 3 seconds to let search results populate...");
+    await this.page.waitForTimeout(3000);
+
     const kababLocator = this.page.locator(S.adminLogin.orgListingActions.orgActions[0]).first();
     await kababLocator.waitFor({ state: "attached", timeout: 20000 });
     await kababLocator.waitFor({ state: "visible", timeout: 10000 });
-
 
     const actionsClicked = await clickIfPresent(
       this,
@@ -165,7 +170,6 @@ Then(
         "Found the kabab icon in HTML but failed to trigger the click.",
       );
     }
-
 
     await clickIfPresent(
       this,

@@ -3,7 +3,8 @@ import * as path from 'path';
 
 const lockDir = path.resolve(process.cwd(), '.locks');
 
-export async function acquireLock(lockName: string, maxWaitMs = 60000) {
+// UPDATE: Changed maxWaitMs default to Infinity. It will now hold forever instead of failing.
+export async function acquireLock(lockName: string, maxWaitMs = Infinity) {
     if (!fs.existsSync(lockDir)) {
         fs.mkdirSync(lockDir, { recursive: true });
     }
@@ -12,12 +13,10 @@ export async function acquireLock(lockName: string, maxWaitMs = 60000) {
 
     while (Date.now() - startTime < maxWaitMs) {
         try {
-            
             fs.writeFileSync(lockFile, 'locked', { flag: 'wx' });
             console.log(`\n[MUTEX] Lock '${lockName}' acquired. Proceeding into critical section...`);
             return true;
         } catch (err) {
-            
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
     }

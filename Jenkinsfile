@@ -15,7 +15,6 @@ pipeline {
                 script: [script: '''
                     def fileList = ["All"]
                     def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
-                    // Matches your job name exactly: RQILLP-Playwright-Tests
                     def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
                     if (dir.exists()) {
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
@@ -68,7 +67,7 @@ pipeline {
     stages {
         stage('Updated Details') {
             steps {
-                echo "Running: ${params.INSTANCE} | ${params.MODULE} | ${params.TAGS}"
+                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER} | Module: ${params.MODULE} | Tags: ${params.TAGS}"
             }
         }
 
@@ -87,7 +86,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Your SDET stack: Playwright, TS, Cucumber
+                // Runs your Playwright/TypeScript/Cucumber suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
@@ -103,7 +102,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Cycle Complete."
+                echo "Cleanup and reporting complete."
             }
         }
     }

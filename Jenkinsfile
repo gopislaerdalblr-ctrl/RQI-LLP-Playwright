@@ -5,7 +5,8 @@ pipeline {
     parameters {
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
-        string(name: 'TAGS', defaultValue: '@demo', description: 'Cucumber tags (e.g., @smoke or @regression)')
+        string(name: 'MODULE', defaultValue: '', description: 'Feature file or folder to run (e.g., src/features/login.feature). Leave blank to run all.')
+        string(name: 'TAGS', defaultValue: '@demo', description: 'Cucumber tags (e.g., @smoke)')
         string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
     }
 
@@ -13,11 +14,11 @@ pipeline {
     environment {
         INSTANCE = "${params.INSTANCE}"
         BROWSER = "${params.BROWSER}"
+        MODULE = "${params.MODULE}"
         TAGS = "${params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
         
-        // Ensures Playwright downloads browsers if the Jenkins agent is fresh
-        PLAYWRIGHT_BROWSERS_PATH = '0' 
+        PLAYWRIGHT_BROWSERS_PATH = '0'
     }
 
     stages {
@@ -47,8 +48,8 @@ pipeline {
     post {
         always {
             echo "Archiving Playwright Reports..."
-            // Grabs the HTML and ZIP files from your reports folder
-            archiveArtifacts artifacts: 'reports/*.html, reports/*.zip', allowEmptyArchive: true
+            // Using ** tells Jenkins to look inside _history and all timestamped sub-folders!
+            archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.zip', allowEmptyArchive: true
         }
         success {
             echo "✅ All tests passed successfully against ${params.INSTANCE}!"
@@ -57,4 +58,3 @@ pipeline {
             echo "❌ Failures detected. Check the zipped artifacts for videos and screenshots."
         }
     }
-}

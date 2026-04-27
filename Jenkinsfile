@@ -1,9 +1,8 @@
-pipeline {
-    agent any 
-
-    parameters {
-        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
-        choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
+// Move parameters here to avoid the "maps" compilation error
+properties([
+    parameters([
+        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
+        choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
         
         // DYNAMIC MODULES (Active Choices)
         [$class: 'ChoiceParameter', 
@@ -15,6 +14,7 @@ pipeline {
                 script: [script: '''
                     def fileList = ["All"]
                     def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
+                    // Ensure this matches your job name: RQILLP-Playwright-Tests
                     def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
                     if (dir.exists()) {
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
@@ -24,7 +24,7 @@ pipeline {
                     return fileList
                 ''']
             ]
-        ]
+        ],
 
         // DYNAMIC TAGS (Active Choices)
         [$class: 'ChoiceParameter', 
@@ -50,10 +50,14 @@ pipeline {
                     return tags.sort().toList()
                 ''']
             ]
-        ]
+        ],
         
         string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
-    }
+    ])
+])
+
+pipeline {
+    agent any 
 
     environment {
         INSTANCE = "${params.INSTANCE}"
@@ -67,7 +71,8 @@ pipeline {
     stages {
         stage('Updated Details') {
             steps {
-                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER} | Module: ${params.MODULE} | Tags: ${params.TAGS}"
+                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Module: ${params.MODULE} | Tags: ${params.TAGS}"
             }
         }
 
@@ -86,7 +91,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Runs your Playwright/TypeScript/Cucumber suite
+                // Executes the Playwright/TypeScript suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
@@ -102,7 +107,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Cleanup and reporting complete."
+                echo "Finalizing job execution."
             }
         }
     }

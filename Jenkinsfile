@@ -42,7 +42,7 @@ properties([
             ]
         ],
 
-        // DYNAMIC TAGS (Automatically fetching all @tags in the project)
+        // DYNAMIC TAGS (Fixed encoding issue for the @ symbol)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
@@ -50,6 +50,7 @@ properties([
                 $class: 'GroovyScript', 
                 fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "@demo"]'], 
                 script: [classpath: [], sandbox: true, script: '''
+                    import java.io.File
                     def tags = ["All"] as Set
                     try {
                         def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
@@ -58,8 +59,9 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
+                                        // Capture tags and ensure they are added as plain strings
                                         def matcher = line =~ /(@\\w+)/
-                                        matcher.each { tags.add(it[0]) }
+                                        matcher.each { tags.add(it[1].toString().trim() ? "@" + it[1] : it[0]) }
                                     }
                                 }
                             }
@@ -67,6 +69,7 @@ properties([
                     } catch (Exception e) {
                         return ["ERROR: " + e.toString()]
                     }
+                    // Returns a clean list of unique tags
                     return tags.sort().toList()
                 ''']
             ]
@@ -92,7 +95,7 @@ pipeline {
         stage('Updated Details') {
             steps {
                 echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Module: ${params.MODULE} | Tag: ${params.TAGS}"
+                echo "Module: ${params.MODULE} | Tags: ${params.TAGS}"
             }
         }
 

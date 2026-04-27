@@ -1,10 +1,10 @@
-// Parameters defined here to support Active Choices and avoid the "maps" compilation error
+// Moved parameters here to support Active Choices and avoid the "maps" compilation error
 properties([
     parameters([
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai', 'rqi1stop', 'preprod'], description: 'Target Environment'),
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
         
-        // AUTOMATICALLY FETCHES FEATURE FILES (Your exact working script)
+        // DYNAMIC MODULES (Using your exact working script)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             description: 'Dynamically fetches all .feature files from your project', 
@@ -42,13 +42,13 @@ properties([
             ]
         ],
 
-        // DYNAMIC TAGS (Merged and fixed to prevent &#64; doubling)
+        // DYNAMIC TAGS (Fixed to prevent &#64; escaping in the UI)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
             script: [
                 $class: 'GroovyScript', 
-                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "@demo"]'], 
+                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "demo"]'], 
                 script: [classpath: [], sandbox: true, script: '''
                     import java.io.File
                     def tags = ["All"] as Set
@@ -59,9 +59,9 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
-                                        // Captures the tag word and adds it without extra prepending to avoid doubled symbols
-                                        def matcher = line =~ /(@\\w+)/
-                                        matcher.each { tags.add(it[0].toString()) }
+                                        // We capture ONLY the tag name to stop Jenkins from escaping the @ symbol
+                                        def matcher = line =~ /@([\\w-]+)/
+                                        matcher.each { tags.add(it[1].toString()) }
                                     }
                                 }
                             }
@@ -85,7 +85,8 @@ pipeline {
         INSTANCE = "${params.INSTANCE}"
         BROWSER = "${params.BROWSER}"
         MODULE = "${params.MODULE}"
-        TAGS = "${params.TAGS}"
+        // This re-adds the @ symbol so your runner.ts still gets the correct tag (e.g., @smoke)
+        TAGS = "${params.TAGS == 'All' ? '' : '@' + params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
@@ -93,8 +94,8 @@ pipeline {
     stages {
         stage('Updated Details') {
             steps {
-                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Module: ${params.MODULE} | Tags: ${params.TAGS}"
+                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Module: ${params.MODULE} | Execution Tag: ${env.TAGS}"
             }
         }
 
@@ -113,7 +114,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Runs your Playwright/TypeScript suite
+                // Runs your Playwright/TypeScript/Cucumber suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
@@ -129,7 +130,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Cycle complete."
+                echo "Automation job complete."
             }
         }
     }

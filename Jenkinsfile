@@ -1,55 +1,55 @@
 pipeline {
     agent any 
 
-    // Creates the drop-down menus and text boxes in the Jenkins UI
     parameters {
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
-        string(name: 'MODULE', defaultValue: '', description: 'Feature file or folder to run (e.g., src/features/login.feature). Leave blank to run all.')
-        string(name: 'TAGS', defaultValue: '@demo', description: 'Cucumber tags (e.g., @smoke)')
+        choice(name: 'MODULE', choices: ['All', 'courselaunch', 'admin', 'login'], description: 'Select the feature module to run')
+        choice(name: 'TAGS', choices: ['@demo', '@smoke', '@regression', 'All'], description: 'Cucumber tags to execute')
         string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
     }
 
-    // Injects the UI choices securely into Node.js process.env
     environment {
         INSTANCE = "${params.INSTANCE}"
         BROWSER = "${params.BROWSER}"
         MODULE = "${params.MODULE}"
         TAGS = "${params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
-        
-        // Ensures Playwright downloads browsers if the Jenkins agent is fresh
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
+    // Every 'stage' here becomes a new column in your Jenkins Stage View grid!
     stages {
-        stage('Checkout Repo') {
+        stage('Checkout Source Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install Dependencies') {
+        stage('NPM Setup & Dependencies') {
             steps {
-                // If your Jenkins is running on Linux later, change 'bat' to 'sh'
                 bat 'npm install'
+            }
+        }
+
+        stage('Install Playwright Browsers') {
+            steps {
                 bat 'npx playwright install --with-deps'
             }
         }
 
-        stage('Execute Playwright Suite') {
+        stage('Execute Playwright Tests') {
             steps {
-                // The runner will automatically absorb the environment variables set above!
+                // Your custom runner handles the parallel execution and logic
                 bat 'npx ts-node src/runner.ts'
             }
         }
     }
 
-    // Capture the reports regardless of Pass/Fail
+    // This will automatically create the "Declarative: Post Actions" column at the end
     post {
         always {
             echo "Archiving Playwright Reports..."
-            // Using ** tells Jenkins to look inside _history and all timestamped sub-folders!
             archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.zip', allowEmptyArchive: true
         }
         success {

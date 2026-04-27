@@ -35,15 +35,24 @@ Then(
   "I create a manual assignment with a specific due date for course {string}",
   async function (this: ICustomWorld, courseKey: string) {
 
-    const courseCfg = readCourseConfig() as any;
+    const rawInstance = process.env.INSTANCE;
+    if (!rawInstance) {
+      throw new Error("[FATAL] INSTANCE environment variable is missing! Ensure your runner is passing the instance correctly.");
+    }
+    const instanceKey = String(rawInstance).trim().toLowerCase();
+    const courseFilePath = require("path").resolve("src/config/course.json");
 
-    const suffix = courseKey.match(/\d+$/)?.[0] || "";
-    const nameKey = `courseName${suffix}`;
-    const resolvedCourseName = (courseCfg[nameKey] || courseCfg["courseName"] || "").trim();
+    let rawCourseData = require("fs").readFileSync(courseFilePath, "utf-8");
+    rawCourseData = rawCourseData.replace(/^\uFEFF/, "").trim();
+    const allCourses = JSON.parse(rawCourseData);
+
+    const instanceCourses = allCourses[instanceKey] || {};
+    const resolvedCourseName = (instanceCourses[courseKey] || "").trim();
+
     this.assignedCourseName = resolvedCourseName;
 
     if (!resolvedCourseName) {
-      throw new Error(`Could not resolve a course name for key: ${courseKey}`);
+      throw new Error(`[FATAL] Course key '${courseKey}' is not mapped under instance '${instanceKey}' in course.json`);
     }
 
     const uniqueTitle = `${resolvedCourseName}_${Date.now()}`;
@@ -57,15 +66,11 @@ Then(
     for (const sel of S.adminLogin.CreateAssignment) {
       try {
         const btn = this.page.locator(sel).first();
-
         await btn.waitFor({ state: "attached", timeout: 5000 });
-
         await btn.evaluate((el: HTMLElement) => el.click());
         createBtnFound = true;
         break;
-      } catch (e) {
-
-      }
+      } catch (e) { }
     }
 
     if (!createBtnFound) {
@@ -90,12 +95,14 @@ Then(
     await this.page.waitForTimeout(1000);
 
     let searchFilled = false;
+    const assignmentSearchName = resolvedCourseName.split('(')[0].trim();
+
     for (const sel of S.adminLogin.CourseSearchInput) {
       try {
         const el = this.page.locator(sel).first();
         await el.waitFor({ state: "visible", timeout: 8000 });
         await el.click({ clickCount: 3 });
-        await el.pressSequentially(resolvedCourseName, { delay: 80 });
+        await el.pressSequentially(assignmentSearchName, { delay: 80 });
         searchFilled = true;
         break;
       } catch { }
@@ -169,9 +176,6 @@ Then(
       throw new Error("[FATAL] No imported user email found in context.");
     }
 
-    // =========================================================================
-    // 1. DYNAMIC PARTITIONED LOCK (No more global waiting)
-    // =========================================================================
     const safeIdentifier = searchTarget.replace(/[^a-zA-Z0-9]/g, '_');
     const dynamicLockName = `assignment_creation_${safeIdentifier}`;
 
@@ -194,23 +198,17 @@ Then(
       const confirmAddBtn = this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last();
       await confirmAddBtn.click({ force: true }).catch(() => { });
 
-      // =========================================================================
-      // 2. BULLETPROOF LEARNER TABLE VERIFICATION
-      // =========================================================================
       console.log(`[DEBUG] Waiting for modal to close and learner to populate in the background table...`);
 
-      // A. Wait for the modal to physically close
       await confirmAddBtn.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {
         console.log("[WARNING] Modal might still be closing. Proceeding with caution.");
       });
 
-      // B. Wait for the "No Students are available." text to DISAPPEAR
       const emptyStateText = this.page.getByText("No Students are available.", { exact: true });
       await emptyStateText.waitFor({ state: "hidden", timeout: 20000 }).catch(() => {
         console.log("[WARNING] 'No Students' text didn't hide. The backend might be slow or failed to link the user.");
       });
 
-      // C. Verify a real row exists in the table body before clicking create
       const populatedRow = this.page.locator('tbody tr').filter({ hasNotText: "No Students are available." }).first();
       const isLearnerAdded = await populatedRow.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
 
@@ -221,9 +219,6 @@ Then(
       console.log(`[DEBUG] Learner data physically rendered in the table! Safe to click Create Assignment.`);
       await this.page.waitForTimeout(1500);
 
-      // =========================================================================
-      // 3. BULLETPROOF PROMISE.ALL RACE + RETRY LOOP (No networkidle traps)
-      // =========================================================================
       console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
       const createBtn = this.page.locator(S.adminLogin.CreateAssignmentButton.join(', ')).first();
       const successBanner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', ')).first();
@@ -268,7 +263,6 @@ Then(
       await this.page.waitForTimeout(2000);
 
     } finally {
-      // 4. RELEASE THE EXACT SAME DYNAMIC LOCK
       releaseLock(dynamicLockName);
     }
 
@@ -918,21 +912,43 @@ Then(
   "I create a manual assignment for course {string}",
   async function (this: ICustomWorld, courseKey: string) {
 
-    const courseCfg = readCourseConfig() as any;
+    const rawInstance = process.env.INSTANCE;
+    if (!rawInstance) {
+      throw new Error("[FATAL] INSTANCE environment variable is missing! Ensure your runner is passing the instance correctly.");
+    }
+    const instanceKey = String(rawInstance).trim().toLowerCase();
 
-    const suffix = courseKey.match(/\d+$/)?.[0] || "";
-    const nameKey = `courseName${suffix}`;
-    const resolvedCourseName = (courseCfg[nameKey] || courseCfg["courseName"] || "").trim();
+    const courseFilePath = require("path").resolve("src/config/course.json");
+    let rawCourseData = require("fs").readFileSync(courseFilePath, "utf-8");
+    rawCourseData = rawCourseData.replace(/^\uFEFF/, "").trim();
+    const allCourses = JSON.parse(rawCourseData);
 
+    const instanceCourses = allCourses[instanceKey] || {};
 
-    (this as any)[courseKey] = resolvedCourseName;
-    this.assignedCourseName = resolvedCourseName;
+    const normalize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    const normalizedIdentifier = normalize(courseKey);
 
-    if (!resolvedCourseName) {
-      throw new Error(`Could not resolve a course name for key: ${courseKey}`);
+    let courseName = "";
+
+    for (const [key, value] of Object.entries(instanceCourses)) {
+      if (normalize(key) === normalizedIdentifier) {
+        courseName = String(value).trim();
+        break;
+      }
     }
 
-    const uniqueTitle = `${resolvedCourseName}_${Date.now()}`;
+    if (!courseName) {
+      courseName = courseKey.trim();
+    }
+
+    if (!courseName) {
+      throw new Error(`[FATAL] Course identifier '${courseKey}' is invalid.`);
+    }
+
+    (this as any)[courseKey] = courseName;
+    this.assignedCourseName = courseName;
+
+    const uniqueTitle = `${courseName}_${Date.now()}`;
     this.assignmentTitle = uniqueTitle;
 
     await this.page.waitForLoadState("domcontentloaded");
@@ -947,8 +963,7 @@ Then(
         await btn.evaluate((el: HTMLElement) => el.click());
         createBtnFound = true;
         break;
-      } catch (e) {
-      }
+      } catch (e) { }
     }
 
     if (!createBtnFound) {
@@ -973,12 +988,14 @@ Then(
     await this.page.waitForTimeout(1000);
 
     let searchFilled = false;
+    const assignmentSearchName = courseName.split('(')[0].trim();
+
     for (const sel of S.adminLogin.CourseSearchInput) {
       try {
         const el = this.page.locator(sel).first();
         await el.waitFor({ state: "visible", timeout: 8000 });
         await el.click({ clickCount: 3 });
-        await el.pressSequentially(resolvedCourseName, { delay: 80 });
+        await el.pressSequentially(assignmentSearchName, { delay: 80 });
         searchFilled = true;
         break;
       } catch { }
@@ -996,8 +1013,6 @@ Then(
     await fillIfPresent(this, S.adminLogin.AssignmentTitleInput, uniqueTitle);
     await this.page.waitForTimeout(1000);
 
-
-
     const nextClicked = await clickIfPresent(this, S.adminLogin.AssignmentNextButton);
     if (!nextClicked) throw new Error("[FATAL] Failed to click Assignment Next button.");
     await this.page.waitForTimeout(2000);
@@ -1007,8 +1022,11 @@ Then(
       throw new Error("[FATAL] No imported user email found in context.");
     }
 
-    console.log(`\n[DEBUG] Waiting for backend clearance to add learners...`);
-    await acquireLock('assignment_creation');
+    const safeIdentifier = searchTarget.replace(/[^a-zA-Z0-9]/g, '_');
+    const dynamicLockName = `assignment_creation_${safeIdentifier}`;
+
+    console.log(`\n[DEBUG] Waiting for backend clearance on dynamic lock: ${dynamicLockName}...`);
+    await acquireLock(dynamicLockName);
 
     try {
       const addLearnerClicked = await clickIfPresent(this, S.adminLogin.AddLearnerButton);
@@ -1023,29 +1041,75 @@ Then(
       await searchResult.click({ force: true }).catch(() => { });
       await this.page.waitForTimeout(1000);
 
-      await this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last().click({ force: true }).catch(() => { });
-      await this.page.waitForTimeout(2000);
+      const confirmAddBtn = this.page.locator(S.adminLogin.addLearnerConfirmBtn.join(', ')).last();
+      await confirmAddBtn.click({ force: true }).catch(() => { });
+
+      console.log(`[DEBUG] Waiting for modal to close and learner to populate in the background table...`);
+
+      await confirmAddBtn.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {
+        console.log("[WARNING] Modal might still be closing. Proceeding with caution.");
+      });
+
+      const emptyStateText = this.page.getByText("No Students are available.", { exact: true });
+      await emptyStateText.waitFor({ state: "hidden", timeout: 20000 }).catch(() => {
+        console.log("[WARNING] 'No Students' text didn't hide. The backend might be slow or failed to link the user.");
+      });
+
+      const populatedRow = this.page.locator('tbody tr').filter({ hasNotText: "No Students are available." }).first();
+      const isLearnerAdded = await populatedRow.waitFor({ state: "visible", timeout: 10000 }).then(() => true).catch(() => false);
+
+      if (!isLearnerAdded) {
+        throw new Error(`[FATAL] Learner addition failed! Modal closed, but the background table never populated with the user data.`);
+      }
+
+      console.log(`[DEBUG] Learner data physically rendered in the table! Safe to click Create Assignment.`);
+      await this.page.waitForTimeout(1500);
 
       console.log(`[DEBUG] Attempting to click final Create Assignment button...`);
       const createBtn = this.page.locator(S.adminLogin.CreateAssignmentButton.join(', ')).first();
-
-      await createBtn.click({ force: true }).catch(() => {
-        console.log("[WARNING] Playwright click event interrupted, likely due to instant DOM refresh.");
-      });
-
-      console.log(`[DEBUG] Waiting for success banner...`);
-
       const successBanner = this.page.locator(S.adminLogin.assignmentSuccessBanner.join(', ')).first();
 
-      await successBanner.waitFor({ state: "visible", timeout: 15000 }).catch(() => {
-        console.log("[WARNING] Success banner not visible within 15s. Checking if assignment saved anyway.");
-      });
+      let bannerFound = false;
 
-      await this.page.waitForLoadState("networkidle");
-      await this.page.waitForTimeout(3000);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`[DEBUG] Create Assignment Attempt ${attempt}/3...`);
+
+        if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+
+          const bannerWait = successBanner.waitFor({ state: "visible", timeout: 15000 })
+            .then(() => true)
+            .catch(() => false);
+
+          await createBtn.click({ force: true }).catch(() => { });
+          bannerFound = await bannerWait;
+
+          if (bannerFound) {
+            console.log(`[DEBUG] Success banner safely captured on attempt ${attempt}!`);
+            break;
+          } else {
+            console.log(`[WARNING] Banner didn't trigger on attempt ${attempt}. Retrying...`);
+            await this.page.waitForTimeout(2000);
+          }
+
+        } else {
+          console.log(`[DEBUG] Create button no longer visible. Form likely submitted successfully.`);
+          break;
+        }
+      }
+
+      if (!bannerFound) {
+        const btnStillThere = await createBtn.isVisible({ timeout: 2000 }).catch(() => false);
+        if (btnStillThere) {
+          throw new Error("[FATAL] Failed to create assignment. Success banner never appeared and button remains.");
+        } else {
+          console.log(`[DEBUG] Assuming success: Banner missed, but button disappeared.`);
+        }
+      }
+
+      await this.page.waitForTimeout(2000);
 
     } finally {
-      releaseLock('assignment_creation');
+      releaseLock(dynamicLockName);
     }
 
     await this.attach(`Successfully created manual Perpetual Assignment: ${uniqueTitle} for user: ${searchTarget}`, "text/plain");
@@ -1057,18 +1121,50 @@ Then(
 
 Then(
   "I launch and complete the specific course {string} for {string}",
-  { timeout: 300 * 1000 }, // INCREASED TO 5 MINUTES FOR SLOW REDIRECTS
+  { timeout: 300000 },
   async function (this: ICustomWorld, courseIdentifier: string, qtrInput: string) {
     if (!this.page || !this.context) {
       throw new Error("[FATAL] Playwright page/context object is undefined.");
     }
 
+    
+    const rawInstance = process.env.INSTANCE;
+    if (!rawInstance) {
+      throw new Error("[FATAL] INSTANCE environment variable is missing! Ensure your runner is passing the instance correctly.");
+    }
+    const instanceKey = String(rawInstance).trim().toLowerCase();
 
-    const courseName = (this as any)[courseIdentifier] || courseIdentifier;
+    
+    const courseFilePath = require("path").resolve("src/config/course.json");
+    let rawCourseData = require("fs").readFileSync(courseFilePath, "utf-8");
+    rawCourseData = rawCourseData.replace(/^\uFEFF/, "").trim();
+    const allCourses = JSON.parse(rawCourseData);
+
+    const instanceCourses = allCourses[instanceKey] || {};
+
+    
+    const normalize = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    const normalizedIdentifier = normalize(courseIdentifier);
+
+    let courseName = "";
+
+    for (const [key, value] of Object.entries(instanceCourses)) {
+      if (normalize(key) === normalizedIdentifier) {
+        courseName = String(value).trim();
+        break;
+      }
+    }
 
     if (!courseName) {
-      throw new Error(`[FATAL] Could not resolve a course name for identifier: ${courseIdentifier}`);
+      courseName = courseIdentifier.trim();
     }
+
+    if (!courseName) {
+      throw new Error(`[FATAL] Course identifier '${courseIdentifier}' is invalid.`);
+    }
+
+    
+    courseName = courseName.split('(')[0].trim();
 
     const dateParts = getTargetDateFromQuarter(qtrInput);
     const targetFormattedDate = `${dateParts.yyyy}-${dateParts.mm}-${dateParts.dd}`;
@@ -1083,7 +1179,6 @@ Then(
     await this.page.addInitScript(rawConsoleScript);
     await this.page.bringToFront();
     await this.page.waitForLoadState("domcontentloaded");
-
 
     console.log(`[DEBUG] CONTINUITY SCRIPT: Navigating to dashboard for ${courseName}...`);
 
@@ -1141,7 +1236,7 @@ Then(
       await this.page.waitForTimeout(3000);
     }
 
-
+    
     const getExactCourseRow = async () => {
       const potentialRows = this.page.locator(S.studentDashboard.courseRowByText(courseName));
       await potentialRows.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => { });
@@ -1183,7 +1278,7 @@ Then(
     await exactCourseRow.scrollIntoViewIfNeeded().catch(() => { });
     console.log(`[DEBUG] EXACT MATCH FOUND! True individual row successfully isolated.`);
 
-
+    
     let activateBtn = exactCourseRow.locator(S.studentDashboard.activateBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for ACTIVATE button...`);
@@ -1205,6 +1300,7 @@ Then(
       console.log(`[DEBUG] ACTIVATE button not found for this specific course.`);
     }
 
+    
     let launchBtn = exactCourseRow.locator(S.studentDashboard.launchBtnUppercase.join(', ')).first();
 
     console.log(`[DEBUG] Checking for LAUNCH button...`);
@@ -1223,7 +1319,7 @@ Then(
       console.log(`[DEBUG] LAUNCH button not found for this specific course.`);
     }
 
-
+    
     const fillDateSafely = async (dateInputLocator: any) => {
       await dateInputLocator.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -1274,6 +1370,7 @@ Then(
 
     let modulesCompleted = 0;
 
+   
     while (true) {
       await this.page.bringToFront();
       await this.page.waitForLoadState("networkidle");
@@ -1346,6 +1443,7 @@ Then(
       modulesCompleted++;
     }
 
+    
     const cmeModal = this.page.locator(S.postCompletion.cmeModal.join(', ')).first();
     if (await cmeModal.isVisible({ timeout: 4000 }).catch(() => false)) {
       const ackBtn = cmeModal.locator(S.postCompletion.acknowledgeBtn.join(', ')).first();
@@ -1411,16 +1509,15 @@ Then(
         await fillDateSafely(inlineDateInput);
 
         console.log(`[DEBUG] Clicking SUBMIT on Post-Evaluation Date Picker...`);
-
         await postEvalInlineSubmitBtn.click({ force: true, noWaitAfter: true }).catch(() => { });
 
         console.log(`[DEBUG] Waiting for post-submit redirect to settle...`);
-
         await this.page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => { });
         await this.page.waitForTimeout(3000);
       }
     }
 
+    
     console.log(`[DEBUG] Taking final screenshot...`);
 
     let screenshot = await this.page.screenshot({ fullPage: true, timeout: 10000 }).catch(async () => {

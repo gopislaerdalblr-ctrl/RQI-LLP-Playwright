@@ -1,47 +1,50 @@
-pipeline {
-    agent any 
-
-    // =========================================================================
-    // DYNAMIC PARAMETERS (Requires Active Choices Plugin)
-    // =========================================================================
-    properties([
-        parameters([
-            choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
-            choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
-            
-            // AUTOMATICALLY FETCHES FEATURE FILES
-            [$class: 'ChoiceParameter', 
-                choiceType: 'PT_SINGLE_SELECT', 
-                description: 'Dynamically fetches all .feature files from your project', 
-                filterLength: 1, 
-                filterable: false, 
-                name: 'MODULE', 
-                script: [
-                    $class: 'GroovyScript', 
-                    fallbackScript: [classpath: [], sandbox: true, script: 'return ["All"]'], 
-                    script: [classpath: [], sandbox: true, script: '''
-                        import java.io.File
-                        def fileList = ["All"]
-                        
-                        // Jenkins looks at the workspace of this specific job
-                        def dir = new File(System.getenv("JENKINS_HOME") + "/workspace/RQILLP-Playwright-Tests/src/features")
-                        
-                        if (dir.exists()) {
-                            dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
-                                if (file.name.endsWith('.feature')) {
-                                    fileList.add(file.name.replace('.feature', ''))
-                                }
+// =========================================================================
+// DYNAMIC PARAMETERS MUST BE DEFINED OUTSIDE THE PIPELINE BLOCK
+// =========================================================================
+properties([
+    parameters([
+        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
+        choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
+        
+        // AUTOMATICALLY FETCHES FEATURE FILES
+        [$class: 'ChoiceParameter', 
+            choiceType: 'PT_SINGLE_SELECT', 
+            description: 'Dynamically fetches all .feature files from your project', 
+            filterLength: 1, 
+            filterable: false, 
+            name: 'MODULE', 
+            script: [
+                $class: 'GroovyScript', 
+                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All"]'], 
+                script: [classpath: [], sandbox: true, script: '''
+                    import java.io.File
+                    def fileList = ["All"]
+                    
+                    // Jenkins looks at the workspace of this specific job
+                    def dir = new File(System.getenv("JENKINS_HOME") + "/workspace/RQILLP-Playwright-Tests/src/features")
+                    
+                    if (dir.exists()) {
+                        dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                            if (file.name.endsWith('.feature')) {
+                                fileList.add(file.name.replace('.feature', ''))
                             }
                         }
-                        return fileList
-                    ''']
-                ]
-            ],
-            
-            string(name: 'TAGS', defaultValue: '@demo', description: 'Type the Cucumber tags to execute (e.g., @smoke) or leave blank'),
-            string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
-        ])
+                    }
+                    return fileList
+                ''']
+            ]
+        ],
+        
+        string(name: 'TAGS', defaultValue: '@demo', description: 'Type the Cucumber tags to execute (e.g., @smoke) or leave blank'),
+        string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
     ])
+])
+
+// =========================================================================
+// THE ACTUAL PIPELINE
+// =========================================================================
+pipeline {
+    agent any 
 
     environment {
         INSTANCE = "${params.INSTANCE}"
@@ -71,9 +74,6 @@ pipeline {
         }
     }
 
-    // =========================================================================
-    // POST ACTIONS: ARCHIVE & UI EMBEDDING
-    // =========================================================================
     post {
         always {
             echo "Archiving Playwright Reports..."
@@ -85,7 +85,7 @@ pipeline {
                 copy "reports\\_history\\*\\report.html" "reports\\latest\\index.html"
             '''
             
-            // Embeds the report directly into the Jenkins UI (Requires HTML Publisher Plugin)
+            // Embeds the report directly into the Jenkins UI
             publishHTML([
                 allowMissing: true, 
                 alwaysLinkToLastBuild: true, 

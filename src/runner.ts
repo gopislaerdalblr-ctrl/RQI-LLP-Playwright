@@ -2,16 +2,6 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 
-
-
-// NOTE:
-// If you set browser to "chromium" + "firefox" + "webkit",
-// TypeScript concatenates it into "chromiumfirefoxwebkit".
-// This runner now detects that and runs all 3 browsers.
-//browser: "chromium" + "firefox" + "webkit", // chromium | firefox | webkit | "all" | "chromium+firefox+webkit"
-// browser: "all",
-
-
 const RUN_CONFIG = {
   instance: "maurya",
   tags: "@demo",
@@ -75,6 +65,7 @@ function parseBrowsers(input: string): string[] {
 
 const instance = (getCliArg('--instance=') || envOrDefault("INSTANCE", RUN_CONFIG.instance)).toLowerCase();
 const tags = getCliArg('--tags=') || envOrDefault("TAGS", RUN_CONFIG.tags);
+const modulePath = getCliArg('--module=') || envOrDefault("MODULE", "");
 const parallel = parseIntSafe(
   getCliArg('--parallel=') || getCliArg('--workers=') || envOrDefault("PARALLEL", String(RUN_CONFIG.parallel)),
   RUN_CONFIG.parallel
@@ -83,7 +74,6 @@ const parallel = parseIntSafe(
 const browserRaw = getCliArg('--browser=') || envOrDefault("BROWSER", RUN_CONFIG.browser).toLowerCase();
 const browsersToRun = parseBrowsers(browserRaw);
 
-// Smart Headless Detection: Automatically forces headless mode if running in Jenkins (JENKINS_URL) or general CI
 const isCI = process.env.CI === "true" || !!process.env.JENKINS_URL;
 const headless = parseBool(
   getCliArg('--headless=') || envOrDefault("HEADLESS", String(isCI ? true : RUN_CONFIG.headless)),
@@ -162,11 +152,19 @@ async function runOnceForBrowser(browser: string): Promise<number> {
     cucumberEntry,
     "--config",
     "cucumber.js",
-    "--tags",
-    tags,
     "--parallel",
     String(parallel),
   ];
+
+  // Dynamically push tags if they exist
+  if (tags && tags.trim() !== "") {
+    args.push("--tags", tags);
+  }
+
+  // Dynamically push the specific feature module if one was typed in Jenkins
+  if (modulePath && modulePath.trim() !== "") {
+    args.push(modulePath.trim());
+  }
 
   if (String(process.env.RETRY_FAILED_ONCE || "") === "1") {
     args.push("--retry", "1");

@@ -15,21 +15,30 @@ properties([
             name: 'MODULE', 
             script: [
                 $class: 'GroovyScript', 
-                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All"]'], 
+                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "FALLBACK SCRIPT EXECUTED"]'], 
                 script: [classpath: [], sandbox: true, script: '''
                     import java.io.File
                     def fileList = ["All"]
                     
-                    // Jenkins looks at the workspace of this specific job
-                    def dir = new File(System.getenv("JENKINS_HOME") + "/workspace/RQILLP-Playwright-Tests/src/features")
-                    
-                    if (dir.exists()) {
+                    try {
+                        // Safely gets the Jenkins Home path, even on Windows
+                        def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
+                        def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
+                        
+                        if (!dir.exists()) {
+                            fileList.add("DEBUG: Folder not found at " + dir.absolutePath)
+                            return fileList
+                        }
+                        
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                             if (file.name.endsWith('.feature')) {
                                 fileList.add(file.name.replace('.feature', ''))
                             }
                         }
+                    } catch (Exception e) {
+                        fileList.add("ERROR: " + e.toString())
                     }
+                    
                     return fileList
                 ''']
             ]

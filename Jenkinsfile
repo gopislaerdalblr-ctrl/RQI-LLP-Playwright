@@ -1,7 +1,7 @@
-// Moved parameters here to support Active Choices and avoid the "maps" compilation error
+// Parameters defined here to support Active Choices and avoid the "maps" compilation error
 properties([
     parameters([
-        choice(name: 'INSTANCE', choices: ['maurya', 'samurai', 'rqi1stop', 'preprod'], description: 'Target Environment'),
+        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
         
         // DYNAMIC MODULES (Using your exact working script)
@@ -59,7 +59,7 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
-                                        // We capture ONLY the tag name to stop Jenkins from escaping the @ symbol
+                                        // Capture ONLY the tag name to prevent Jenkins from escaping @
                                         def matcher = line =~ /@([\\w-]+)/
                                         matcher.each { tags.add(it[1].toString()) }
                                     }
@@ -85,26 +85,29 @@ pipeline {
         INSTANCE = "${params.INSTANCE}"
         BROWSER = "${params.BROWSER}"
         MODULE = "${params.MODULE}"
-        // This re-adds the @ symbol so your runner.ts still gets the correct tag (e.g., @smoke)
+        // Re-adds @ so your runner.ts still gets the correct value (e.g., @smoke)
         TAGS = "${params.TAGS == 'All' ? '' : '@' + params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
     stages {
+        // MATCHING STAGE 1 FROM SCREENSHOT
         stage('Updated Details') {
             steps {
-                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Module: ${params.MODULE} | Execution Tag: ${env.TAGS}"
+                echo "Running tests for ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Selected Module: ${params.MODULE} | Execution Tag: ${env.TAGS}"
             }
         }
 
+        // MATCHING STAGE 2 FROM SCREENSHOT
         stage('Chekout the code') {
             steps {
                 checkout scm
             }
         }
 
+        // MATCHING STAGE 3 FROM SCREENSHOT
         stage('powershell script') {
             steps {
                 bat 'npm install'
@@ -112,6 +115,7 @@ pipeline {
             }
         }
 
+        // MATCHING STAGE 4 FROM SCREENSHOT
         stage('Executing Test Cases') {
             steps {
                 // Runs your Playwright/TypeScript/Cucumber suite
@@ -119,6 +123,7 @@ pipeline {
             }
         }
 
+        // MATCHING STAGE 5 FROM SCREENSHOT
         stage('Capturing Report Screenshot') {
             steps {
                 bat '''
@@ -128,9 +133,10 @@ pipeline {
             }
         }
 
+        // MATCHING STAGE 6 FROM SCREENSHOT
         stage('Start DISM Cleanup') {
             steps {
-                echo "Automation job complete."
+                echo "Automation job execution complete."
             }
         }
     }

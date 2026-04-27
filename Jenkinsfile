@@ -3,7 +3,7 @@ pipeline {
 
     // Creates the drop-down menus and text boxes in the Jenkins UI
     parameters {
-        choice(name: 'INSTANCE', choices: ['maurya', 'samurai'], description: 'Target Environment')
+        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
         string(name: 'TAGS', defaultValue: '@demo', description: 'Cucumber tags (e.g., @smoke or @regression)')
         string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')

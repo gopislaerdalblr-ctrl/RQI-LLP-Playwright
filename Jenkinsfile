@@ -1,7 +1,7 @@
-// Parameters defined here to support the Active Choices Map syntax and avoid compilation errors
+// Parameters defined here to support Active Choices and avoid the "maps" compilation error
 properties([
     parameters([
-        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
+        choice(name: 'INSTANCE', choices: ['maurya', 'samurai', 'rqi1stop', 'preprod'], description: 'Target Environment'),
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
         
         // AUTOMATICALLY FETCHES FEATURE FILES (Your exact working script)
@@ -42,7 +42,7 @@ properties([
             ]
         ],
 
-        // DYNAMIC TAGS (Fixed logic to prevent doubling of the @ symbol)
+        // DYNAMIC TAGS (Merged and fixed to prevent &#64; doubling)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
@@ -59,10 +59,9 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
-                                        // Regex now captures just the word after the @
-                                        def matcher = line =~ /@(\\w+)/
-                                        // We add exactly one @ back to the word to prevent &#64;&#64;
-                                        matcher.each { tags.add("@" + it[1]) }
+                                        // Captures the tag word and adds it without extra prepending to avoid doubled symbols
+                                        def matcher = line =~ /(@\\w+)/
+                                        matcher.each { tags.add(it[0].toString()) }
                                     }
                                 }
                             }
@@ -94,7 +93,7 @@ pipeline {
     stages {
         stage('Updated Details') {
             steps {
-                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER}"
                 echo "Module: ${params.MODULE} | Tags: ${params.TAGS}"
             }
         }
@@ -114,7 +113,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Runs your Playwright/TypeScript/Cucumber suite
+                // Runs your Playwright/TypeScript suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
@@ -130,7 +129,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Automation cycle finished."
+                echo "Cycle complete."
             }
         }
     }

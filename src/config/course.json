@@ -1,13 +1,12 @@
 ﻿{
-  "courseName": "HeartCode® BLS Complete",
-  "courseId": "HeartCode® BLS Complete (25-3550)",
-  "defaultTags": "@smoke, @test",
-
-  "courseName1": "RQI® BLS Provider - True Start",
-  "courseId1": "RQI® BLS Provider - True Start (25-3500TS)",
-  "defaultTags1": "@smoke, @test",
-  
-  "courseName2": "RQI® BLS Provider - Perpetual",
-  "courseId2": "RQI® BLS Provider - Perpetual (25-3500)",
-  "defaultTags2": "@smoke, @test"
+  "maurya": {
+    "HeartCode® BLS Complete": "HeartCode® BLS Complete (25-3550)",
+    "RQI® BLS Provider - True Start": "RQI® BLS Provider - True Start (25-3500TS)",
+    "RQI® BLS Provider - Perpetual": "RQI® BLS Provider - Perpetual (25-3500)"
+  },
+  "qa-samurai": {
+    "HeartCode® BLS Complete": "HeartCode® BLS Complete (25-3550)",
+    "RQI® BLS Provider - True Start": "RQI® BLS Provider - True Start (25-3500TS)",
+    "RQI® BLS Provider - Perpetual": "RQI® BLS Provider - Perpetual (25-3500)"
+  }
 }

@@ -18,7 +18,8 @@ pipeline {
         TAGS = "${params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
         
-        PLAYWRIGHT_BROWSERS_PATH = '0'
+        // Ensures Playwright downloads browsers if the Jenkins agent is fresh
+        PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
     stages {
@@ -30,7 +31,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                // If your Jenkins is running on Linux, change 'bat' to 'sh'
+                // If your Jenkins is running on Linux later, change 'bat' to 'sh'
                 bat 'npm install'
                 bat 'npx playwright install --with-deps'
             }
@@ -58,3 +59,4 @@ pipeline {
             echo "❌ Failures detected. Check the zipped artifacts for videos and screenshots."
         }
     }
+}

@@ -1,51 +1,71 @@
-// Move parameters here to avoid the "maps" compilation error
+// Parameters defined here to support the Active Choices Map syntax
 properties([
     parameters([
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
         
-        // DYNAMIC MODULES (Active Choices)
+        // AUTOMATICALLY FETCHES FEATURE FILES (Your exact working script)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
+            description: 'Dynamically fetches all .feature files from your project', 
+            filterLength: 1, 
+            filterable: false, 
             name: 'MODULE', 
             script: [
                 $class: 'GroovyScript', 
-                fallbackScript: [script: 'return ["All"]'], 
-                script: [script: '''
+                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "FALLBACK SCRIPT EXECUTED"]'], 
+                script: [classpath: [], sandbox: true, script: '''
+                    import java.io.File
                     def fileList = ["All"]
-                    def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
-                    // Ensure this matches your job name: RQILLP-Playwright-Tests
-                    def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
-                    if (dir.exists()) {
-                        dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
-                            if (file.name.endsWith('.feature')) fileList.add(file.name.replace('.feature', ''))
+                    
+                    try {
+                        // Safely gets the Jenkins Home path, even on Windows
+                        def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
+                        def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
+                        
+                        if (!dir.exists()) {
+                            fileList.add("DEBUG: Folder not found at " + dir.absolutePath)
+                            return fileList
                         }
+                        
+                        dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                            if (file.name.endsWith('.feature')) {
+                                fileList.add(file.name.replace('.feature', ''))
+                            }
+                        }
+                    } catch (Exception e) {
+                        fileList.add("ERROR: " + e.toString())
                     }
+                    
                     return fileList
                 ''']
             ]
         ],
 
-        // DYNAMIC TAGS (Active Choices)
+        // DYNAMIC TAGS (Automatically fetching all @tags in the project)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
             script: [
                 $class: 'GroovyScript', 
-                fallbackScript: [script: 'return ["@demo"]'], 
-                script: [script: '''
+                fallbackScript: [classpath: [], sandbox: true, script: 'return ["All", "@demo"]'], 
+                script: [classpath: [], sandbox: true, script: '''
                     def tags = ["All"] as Set
-                    def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
-                    def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
-                    if (dir.exists()) {
-                        dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
-                            if (file.name.endsWith('.feature')) {
-                                file.eachLine { line ->
-                                    def matcher = line =~ /(@\\w+)/
-                                    matcher.each { tags.add(it[0]) }
+                    try {
+                        def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
+                        def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
+                        if (dir.exists()) {
+                            dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                                if (file.name.endsWith('.feature')) {
+                                    file.eachLine { line ->
+                                        def matcher = line =~ /(@\\w+)/
+                                        matcher.each { tags.add(it[0]) }
+                                    }
                                 }
                             }
                         }
+                    } catch (Exception e) {
+                        return ["ERROR: " + e.toString()]
                     }
                     return tags.sort().toList()
                 ''']
@@ -71,8 +91,8 @@ pipeline {
     stages {
         stage('Updated Details') {
             steps {
-                echo "Running: ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Module: ${params.MODULE} | Tags: ${params.TAGS}"
+                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Module: ${params.MODULE} | Tag: ${params.TAGS}"
             }
         }
 
@@ -91,7 +111,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Executes the Playwright/TypeScript suite
+                // Running Playwright/TypeScript/Cucumber suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
@@ -107,7 +127,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Finalizing job execution."
+                echo "Automation cycle finished."
             }
         }
     }

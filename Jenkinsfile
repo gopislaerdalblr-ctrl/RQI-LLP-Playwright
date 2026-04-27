@@ -1,4 +1,4 @@
-// Parameters defined here to support Active Choices and avoid the "maps" compilation error
+// Parameters are defined at the very top to support Active Choices
 properties([
     parameters([
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
@@ -17,17 +17,13 @@ properties([
                 script: [classpath: [], sandbox: true, script: '''
                     import java.io.File
                     def fileList = ["All"]
-                    
                     try {
-                        // Safely gets the Jenkins Home path, even on Windows
                         def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
                         def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
-                        
                         if (!dir.exists()) {
                             fileList.add("DEBUG: Folder not found at " + dir.absolutePath)
                             return fileList
                         }
-                        
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                             if (file.name.endsWith('.feature')) {
                                 fileList.add(file.name.replace('.feature', ''))
@@ -36,13 +32,12 @@ properties([
                     } catch (Exception e) {
                         fileList.add("ERROR: " + e.toString())
                     }
-                    
                     return fileList
                 ''']
             ]
         ],
 
-        // DYNAMIC TAGS (Fixed to prevent &#64; escaping in the UI)
+        // DYNAMIC TAGS (Using your working script that avoids &#64; issues)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
@@ -59,7 +54,6 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
-                                        // Capture ONLY the tag name to prevent Jenkins from escaping @
                                         def matcher = line =~ /@([\\w-]+)/
                                         matcher.each { tags.add(it[1].toString()) }
                                     }
@@ -85,29 +79,26 @@ pipeline {
         INSTANCE = "${params.INSTANCE}"
         BROWSER = "${params.BROWSER}"
         MODULE = "${params.MODULE}"
-        // Re-adds @ so your runner.ts still gets the correct value (e.g., @smoke)
+        // Adds @ symbol for runner.ts execution
         TAGS = "${params.TAGS == 'All' ? '' : '@' + params.TAGS}"
         PARALLEL = "${params.PARALLEL}"
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
+    // These stages create the 6 columns in your Jenkins grid
     stages {
-        // MATCHING STAGE 1 FROM SCREENSHOT
         stage('Updated Details') {
             steps {
-                echo "Running tests for ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Selected Module: ${params.MODULE} | Execution Tag: ${env.TAGS}"
+                echo "Testing: ${params.INSTANCE} | Browser: ${params.BROWSER} | Tag: ${env.TAGS}"
             }
         }
 
-        // MATCHING STAGE 2 FROM SCREENSHOT
         stage('Chekout the code') {
             steps {
                 checkout scm
             }
         }
 
-        // MATCHING STAGE 3 FROM SCREENSHOT
         stage('powershell script') {
             steps {
                 bat 'npm install'
@@ -115,7 +106,6 @@ pipeline {
             }
         }
 
-        // MATCHING STAGE 4 FROM SCREENSHOT
         stage('Executing Test Cases') {
             steps {
                 // Runs your Playwright/TypeScript/Cucumber suite
@@ -123,7 +113,6 @@ pipeline {
             }
         }
 
-        // MATCHING STAGE 5 FROM SCREENSHOT
         stage('Capturing Report Screenshot') {
             steps {
                 bat '''
@@ -133,10 +122,9 @@ pipeline {
             }
         }
 
-        // MATCHING STAGE 6 FROM SCREENSHOT
         stage('Start DISM Cleanup') {
             steps {
-                echo "Automation job execution complete."
+                echo "Cycle complete."
             }
         }
     }

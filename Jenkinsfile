@@ -1,13 +1,47 @@
 pipeline {
     agent any 
 
-    parameters {
-        choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
-        choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
-        choice(name: 'MODULE', choices: ['All', 'courselaunch', 'admin', 'login'], description: 'Select the feature module to run')
-        choice(name: 'TAGS', choices: ['@demo', '@smoke', '@regression', 'All'], description: 'Cucumber tags to execute')
-        string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
-    }
+    // =========================================================================
+    // DYNAMIC PARAMETERS (Requires Active Choices Plugin)
+    // =========================================================================
+    properties([
+        parameters([
+            choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
+            choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection'),
+            
+            // AUTOMATICALLY FETCHES FEATURE FILES
+            [$class: 'ChoiceParameter', 
+                choiceType: 'PT_SINGLE_SELECT', 
+                description: 'Dynamically fetches all .feature files from your project', 
+                filterLength: 1, 
+                filterable: false, 
+                name: 'MODULE', 
+                script: [
+                    $class: 'GroovyScript', 
+                    fallbackScript: [classpath: [], sandbox: true, script: 'return ["All"]'], 
+                    script: [classpath: [], sandbox: true, script: '''
+                        import java.io.File
+                        def fileList = ["All"]
+                        
+                        // Jenkins looks at the workspace of this specific job
+                        def dir = new File(System.getenv("JENKINS_HOME") + "/workspace/RQILLP-Playwright-Tests/src/features")
+                        
+                        if (dir.exists()) {
+                            dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+                                if (file.name.endsWith('.feature')) {
+                                    fileList.add(file.name.replace('.feature', ''))
+                                }
+                            }
+                        }
+                        return fileList
+                    ''']
+                ]
+            ],
+            
+            string(name: 'TAGS', defaultValue: '@demo', description: 'Type the Cucumber tags to execute (e.g., @smoke) or leave blank'),
+            string(name: 'PARALLEL', defaultValue: '4', description: 'Number of parallel workers')
+        ])
+    ])
 
     environment {
         INSTANCE = "${params.INSTANCE}"
@@ -18,45 +52,49 @@ pipeline {
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
-    // Every 'stage' here becomes a new column in your Jenkins Stage View grid!
     stages {
         stage('Checkout Source Code') {
             steps {
                 checkout scm
             }
         }
-
-        stage('NPM Setup & Dependencies') {
+        stage('NPM Setup') {
             steps {
                 bat 'npm install'
-            }
-        }
-
-        stage('Install Playwright Browsers') {
-            steps {
                 bat 'npx playwright install --with-deps'
             }
         }
-
         stage('Execute Playwright Tests') {
             steps {
-                // Your custom runner handles the parallel execution and logic
                 bat 'npx ts-node src/runner.ts'
             }
         }
     }
 
-    // This will automatically create the "Declarative: Post Actions" column at the end
+    // =========================================================================
+    // POST ACTIONS: ARCHIVE & UI EMBEDDING
+    // =========================================================================
     post {
         always {
             echo "Archiving Playwright Reports..."
             archiveArtifacts artifacts: 'reports/**/*.html, reports/**/*.zip', allowEmptyArchive: true
-        }
-        success {
-            echo "✅ All tests passed successfully against ${params.INSTANCE}!"
-        }
-        failure {
-            echo "❌ Failures detected. Check the zipped artifacts for videos and screenshots."
+            
+            // Copies the dynamic timestamped HTML report to a static name so Jenkins can embed it
+            bat '''
+                if not exist "reports\\latest" mkdir "reports\\latest"
+                copy "reports\\_history\\*\\report.html" "reports\\latest\\index.html"
+            '''
+            
+            // Embeds the report directly into the Jenkins UI (Requires HTML Publisher Plugin)
+            publishHTML([
+                allowMissing: true, 
+                alwaysLinkToLastBuild: true, 
+                keepAll: true, 
+                reportDir: 'reports/latest', 
+                reportFiles: 'index.html', 
+                reportName: 'Playwright UI Report', 
+                reportTitles: 'Playwright Test Results'
+            ])
         }
     }
 }

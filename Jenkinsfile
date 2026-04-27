@@ -15,6 +15,7 @@ pipeline {
                 script: [script: '''
                     def fileList = ["All"]
                     def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
+                    // Note: Ensure the job name in this path matches your Jenkins job name exactly
                     def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
                     if (dir.exists()) {
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
@@ -69,7 +70,6 @@ pipeline {
         stage('Updated Details') {
             steps {
                 echo "Running tests for Instance: ${params.INSTANCE} on Browser: ${params.BROWSER}"
-                echo "Selected Module: ${params.MODULE} with Tags: ${params.TAGS}"
             }
         }
 
@@ -81,7 +81,6 @@ pipeline {
 
         stage('powershell script') {
             steps {
-                // Since you are on Windows, we use bat for setup tasks
                 bat 'npm install'
                 bat 'npx playwright install --with-deps'
             }
@@ -89,14 +88,12 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // This triggers your runner.ts which handles the Playwright logic
                 bat 'npx ts-node src/runner.ts'
             }
         }
 
         stage('Capturing Report Screenshot') {
             steps {
-                echo "Preparing reports and artifacts..."
                 bat '''
                     if not exist "reports\\latest" mkdir "reports\\latest"
                     copy "reports\\_history\\*\\report.html" "reports\\latest\\index.html"
@@ -106,8 +103,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Cleaning up workspace and temporary files..."
-                // Placeholder for any cleanup logic you might need
+                echo "Cleanup complete."
             }
         }
     }

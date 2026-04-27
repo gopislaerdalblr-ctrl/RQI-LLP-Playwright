@@ -15,7 +15,7 @@ pipeline {
                 script: [script: '''
                     def fileList = ["All"]
                     def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
-                    // IMPORTANT: Ensure "RQILLP-Playwright-Tests" matches your Job Name exactly
+                    // Matches your job name exactly: RQILLP-Playwright-Tests
                     def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
                     if (dir.exists()) {
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
@@ -65,12 +65,10 @@ pipeline {
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
-    // These stages create the job columns like in your screenshot
     stages {
         stage('Updated Details') {
             steps {
-                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
-                echo "Running Module: ${params.MODULE} with Tags: ${params.TAGS}"
+                echo "Running: ${params.INSTANCE} | ${params.MODULE} | ${params.TAGS}"
             }
         }
 
@@ -89,14 +87,13 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Runs your Playwright/TypeScript/Cucumber suite
+                // Your SDET stack: Playwright, TS, Cucumber
                 bat 'npx ts-node src/runner.ts'
             }
         }
 
         stage('Capturing Report Screenshot') {
             steps {
-                // Prepares the HTML report for UI embedding
                 bat '''
                     if not exist "reports\\latest" mkdir "reports\\latest"
                     copy "reports\\_history\\*\\report.html" "reports\\latest\\index.html"
@@ -106,7 +103,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Test execution and reporting cycle complete."
+                echo "Cycle Complete."
             }
         }
     }

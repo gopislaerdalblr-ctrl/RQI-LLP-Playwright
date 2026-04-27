@@ -5,7 +5,7 @@ pipeline {
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment')
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Browser Selection')
         
-        // DYNAMIC MODULES (Fetches all .feature files)
+        // DYNAMIC MODULES (Active Choices)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'MODULE', 
@@ -15,7 +15,7 @@ pipeline {
                 script: [script: '''
                     def fileList = ["All"]
                     def basePath = System.getenv("JENKINS_HOME") ?: (System.getProperty("user.home") + "/.jenkins")
-                    // Note: Ensure the job name in this path matches your Jenkins job name exactly
+                    // IMPORTANT: Ensure "RQILLP-Playwright-Tests" matches your Job Name exactly
                     def dir = new File(basePath + "/workspace/RQILLP-Playwright-Tests/src/features")
                     if (dir.exists()) {
                         dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
@@ -27,7 +27,7 @@ pipeline {
             ]
         ]
 
-        // DYNAMIC TAGS (Scans files for @ symbols)
+        // DYNAMIC TAGS (Active Choices)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
@@ -65,11 +65,12 @@ pipeline {
         PLAYWRIGHT_BROWSERS_PATH = '0' 
     }
 
-    // These stages create the columns in your Stage View grid
+    // These stages create the job columns like in your screenshot
     stages {
         stage('Updated Details') {
             steps {
-                echo "Running tests for Instance: ${params.INSTANCE} on Browser: ${params.BROWSER}"
+                echo "Target: ${params.INSTANCE} | Browser: ${params.BROWSER}"
+                echo "Running Module: ${params.MODULE} with Tags: ${params.TAGS}"
             }
         }
 
@@ -88,12 +89,14 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
+                // Runs your Playwright/TypeScript/Cucumber suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
 
         stage('Capturing Report Screenshot') {
             steps {
+                // Prepares the HTML report for UI embedding
                 bat '''
                     if not exist "reports\\latest" mkdir "reports\\latest"
                     copy "reports\\_history\\*\\report.html" "reports\\latest\\index.html"
@@ -103,7 +106,7 @@ pipeline {
 
         stage('Start DISM Cleanup') {
             steps {
-                echo "Cleanup complete."
+                echo "Test execution and reporting cycle complete."
             }
         }
     }

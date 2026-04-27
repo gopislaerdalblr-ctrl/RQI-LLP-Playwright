@@ -64,8 +64,26 @@ function parseBrowsers(input: string): string[] {
 }
 
 const instance = (getCliArg('--instance=') || envOrDefault("INSTANCE", RUN_CONFIG.instance)).toLowerCase();
-const tags = getCliArg('--tags=') || envOrDefault("TAGS", RUN_CONFIG.tags);
-const modulePath = getCliArg('--module=') || envOrDefault("MODULE", "");
+
+// =========================================================================
+// 1. Tag Translation Logic
+// =========================================================================
+let tags = getCliArg('--tags=') || envOrDefault("TAGS", RUN_CONFIG.tags);
+if (tags === "All") {
+  tags = ""; // If 'All' is selected, clear the tags so Cucumber runs everything
+}
+
+// =========================================================================
+// 2. Module Translation Logic
+// =========================================================================
+const rawModule = getCliArg('--module=') || envOrDefault("MODULE", "All");
+let modulePath = "";
+
+if (rawModule !== "All" && rawModule !== "") {
+  // Translates the clean dropdown name into the actual folder path
+  modulePath = `src/features/${rawModule}.feature`;
+}
+
 const parallel = parseIntSafe(
   getCliArg('--parallel=') || getCliArg('--workers=') || envOrDefault("PARALLEL", String(RUN_CONFIG.parallel)),
   RUN_CONFIG.parallel

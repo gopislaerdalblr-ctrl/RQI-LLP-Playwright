@@ -1,4 +1,4 @@
-// Parameters defined here to support the Active Choices Map syntax
+// Parameters defined here to support the Active Choices Map syntax and avoid compilation errors
 properties([
     parameters([
         choice(name: 'INSTANCE', choices: ['maurya', 'samurai','preprodrqi1stop','preprodeu','preprodau','preprodchn',], description: 'Target Environment'),
@@ -42,7 +42,7 @@ properties([
             ]
         ],
 
-        // DYNAMIC TAGS (Fixed encoding issue for the @ symbol)
+        // DYNAMIC TAGS (Fixed logic to prevent doubling of the @ symbol)
         [$class: 'ChoiceParameter', 
             choiceType: 'PT_SINGLE_SELECT', 
             name: 'TAGS', 
@@ -59,9 +59,10 @@ properties([
                             dir.eachFileRecurse(groovy.io.FileType.FILES) { file ->
                                 if (file.name.endsWith('.feature')) {
                                     file.eachLine { line ->
-                                        // Capture tags and ensure they are added as plain strings
-                                        def matcher = line =~ /(@\\w+)/
-                                        matcher.each { tags.add(it[1].toString().trim() ? "@" + it[1] : it[0]) }
+                                        // Regex now captures just the word after the @
+                                        def matcher = line =~ /@(\\w+)/
+                                        // We add exactly one @ back to the word to prevent &#64;&#64;
+                                        matcher.each { tags.add("@" + it[1]) }
                                     }
                                 }
                             }
@@ -69,7 +70,6 @@ properties([
                     } catch (Exception e) {
                         return ["ERROR: " + e.toString()]
                     }
-                    // Returns a clean list of unique tags
                     return tags.sort().toList()
                 ''']
             ]
@@ -114,7 +114,7 @@ pipeline {
 
         stage('Executing Test Cases') {
             steps {
-                // Running Playwright/TypeScript/Cucumber suite
+                // Runs your Playwright/TypeScript/Cucumber suite
                 bat 'npx ts-node src/runner.ts'
             }
         }
